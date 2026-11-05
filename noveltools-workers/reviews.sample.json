@@ -1,0 +1,28 @@
+[
+  {
+    "id": "truyen-mau-1",
+    "title": "Tên truyện mẫu 1",
+    "titleEn": "Sample Novel One",
+    "titleOrig": "示例小说一",
+    "author": "Tác giả Mẫu",
+    "authorOrig": "示例作者",
+    "genres": ["Huyền Huyễn", "Tu Tiên"],
+    "rating": 8.5,
+    "cover": "https://example.com/cover1.jpg",
+    "summary": "Tóm tắt ngắn 1–2 câu: nhân vật chính, điểm hấp dẫn, ai nên đọc.",
+    "status": "Hoàn thành"
+  },
+  {
+    "id": "truyen-mau-2",
+    "title": "Tên truyện mẫu 2",
+    "titleEn": "",
+    "titleOrig": "示例小说二",
+    "author": "Tác giả Mẫu",
+    "authorOrig": "示例作者",
+    "genres": ["Đô Thị", "Hài Hước"],
+    "rating": 7.8,
+    "cover": "",
+    "summary": "Truyện nhẹ nhàng, nhịp nhanh, hợp đọc giải trí.",
+    "status": "Đang ra"
+  }
+]
