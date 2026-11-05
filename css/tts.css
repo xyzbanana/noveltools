@@ -1,0 +1,1067 @@
+/* tts.css — Thanh đọc văn bản (TTS) */
+
+:root{
+  --tts-bg2:color-mix(in srgb,var(--bg) 78%,transparent); --tts-bg3:color-mix(in srgb,var(--bg) 94%,transparent); --tts-bg4:rgba(255,255,255,.06);
+  /* Bản ĐẶC HOÀN TOÀN (alpha=1) của --tts-bg2/3, cùng tông màu — dùng khi cần
+     chặn tuyệt đối mọi thứ phía sau bleed qua (vd lớp phủ đen .charmem-overlay
+     ngấm qua backdrop-filter của .tts-bar, xem rule body.charmem-open bên dưới).
+     Chỉ hạ alpha xuống <1 mới bị "xuyên thấu" qua backdrop-filter; alpha=1 thì
+     dù blur bao nhiêu cũng không thấy được gì phía dưới nữa. */
+  --tts-bg-solid:var(--bg);
+  --tts-bg-hov:rgba(255,255,255,.10);
+  --tts-bd:rgba(255,255,255,.10); --tts-bd2:rgba(255,255,255,.20);
+  --tts-txt:#eef0f7; --tts-txt2:#9aa0b8; --tts-txt3:#6b7191;
+  --tts-ac:#6366f1; --tts-ac2:#a5b4fc; --tts-ac-dim:rgba(99,102,241,.16);
+  --tts-ok:#4ade80; --tts-warn:#fbbf24; --tts-red:#f87171;
+  --tts-switch-track:rgba(255,255,255,.16);
+  /* --tts-base: lề dưới gốc của các nút nổi (38px desktop/iPad, 25px điện thoại <=680px).
+     --tts-a: lề dưới của thanh audio (giữ 21px như cũ).
+     --tts-gap: khoảng hở giữa cạnh TRÊN thanh audio và nút nổi bị nó đẩy lên (20px desktop/iPad, 10px điện thoại <=680px). */
+  --tts-base:38px;
+  --tts-a:21px;
+  --tts-gap:20px;
+}
+
+@supports not (background:color-mix(in srgb,red,blue)){
+
+  :root{
+    --tts-bg2:var(--bg);
+    --tts-bg3:var(--bg);
+  }
+}
+@media (max-width: 680px) {
+  :root { --tts-base:25px; --tts-gap:10px; }
+}
+
+
+/* ============================================================
+   ĐỒNG BỘ CHUYỂN ĐỘNG khi thanh audio hiện/ẩn
+   --tts-k chạy 0 → 1 (mượt, theo --tts-fx-dur / --tts-fx-ease) khi body có
+   class .tts-open. MỌI thứ phụ thuộc vào thanh audio (chính thanh audio,
+   nút chatbot, nút cuộn lên, donate, toast) đều tính vị trí từ CÙNG biến
+   này nên luôn cùng thời gian + cùng easing, không cần transition `bottom`
+   riêng cho từng nút (transition bottom chồng lên --tts-bar-h do JS ghi mỗi
+   khung hình mới là nguyên nhân gây trễ/lệch nhịp).
+   Để đổi tốc độ cho tất cả: chỉ sửa 2 biến --tts-fx-dur / --tts-fx-ease.
+============================================================ */
+/* --tts-k (0→1) KHÔNG còn chạy trên :root: biến thừa kế mà đổi mỗi khung hình trên :root buộc trình duyệt tính lại style
+   cho TOÀN BỘ DOM (truyện nhiều chương → DOM lớn → lag khi mở thanh audio). Giờ --tts-k không thừa kế (inherits:false) và
+   chỉ chạy trên đúng vài phần tử cần nó (4 nút nổi + .tts-bar-outer) bằng @keyframes, cùng thời gian/easing nên vẫn đồng bộ.
+   Mở: body.tts-open → tts-k-in. Đóng: tts.js thêm body.tts-closing ~0.4s → tts-k-out. */
+@property --tts-k { syntax: '<number>'; inherits: false; initial-value: 0; }
+:root {
+  --tts-fx-dur: .35s;
+  --tts-fx-ease: cubic-bezier(.22, 1, .36, 1);
+}
+@keyframes tts-k-in  { from { --tts-k: 0; } to { --tts-k: 1; } }
+@keyframes tts-k-out { from { --tts-k: 1; } to { --tts-k: 0; } }
+#chatbotBtn,#scrollTopBtn,.support-sticker,.mini-toast,.tts-bar-outer { --tts-k: 0; }
+:is(#chatbotBtn,#scrollTopBtn,.support-sticker,.mini-toast,.tts-bar-outer) { --tts-k: 0; }
+body.tts-open #chatbotBtn,body.tts-open #scrollTopBtn,body.tts-open .support-sticker,body.tts-open .mini-toast,body.tts-open .tts-bar-outer {
+  --tts-k: 1;
+  animation: tts-k-in var(--tts-fx-dur) var(--tts-fx-ease) both;
+}
+body.tts-open :is(#chatbotBtn,#scrollTopBtn,.support-sticker,.mini-toast,.tts-bar-outer) {
+  --tts-k: 1;
+  animation: tts-k-in var(--tts-fx-dur) var(--tts-fx-ease) both;
+}
+body.tts-closing:not(.tts-open) #chatbotBtn,body.tts-closing:not(.tts-open) #scrollTopBtn,body.tts-closing:not(.tts-open) .support-sticker,body.tts-closing:not(.tts-open) .mini-toast,body.tts-closing:not(.tts-open) .tts-bar-outer {
+  animation: tts-k-out var(--tts-fx-dur) var(--tts-fx-ease) both;
+}
+body.tts-closing:not(.tts-open) :is(#chatbotBtn,#scrollTopBtn,.support-sticker,.mini-toast,.tts-bar-outer) {
+  animation: tts-k-out var(--tts-fx-dur) var(--tts-fx-ease) both;
+}
+/* độ nâng của các nút nổi (so với vị trí gốc --tts-base) = đưa nút lên cách cạnh trên thanh audio đúng --tts-gap */
+#chatbotBtn,#scrollTopBtn,.support-sticker,.mini-toast {
+  --tts-lift: calc((var(--tts-bar-h, 130px) + var(--tts-gap) + var(--tts-a) - var(--tts-base)) * var(--tts-k));
+}
+:is(#chatbotBtn,#scrollTopBtn,.support-sticker,.mini-toast) {
+  --tts-lift: calc((var(--tts-bar-h, 130px) + var(--tts-gap) + var(--tts-a) - var(--tts-base)) * var(--tts-k));
+}
+@media (prefers-reduced-motion: reduce) {
+  body.tts-open #chatbotBtn,body.tts-open #scrollTopBtn,body.tts-open .support-sticker,body.tts-open .mini-toast,body.tts-open .tts-bar-outer,body.tts-closing:not(.tts-open) #chatbotBtn,body.tts-closing:not(.tts-open) #scrollTopBtn,body.tts-closing:not(.tts-open) .support-sticker,body.tts-closing:not(.tts-open) .mini-toast,body.tts-closing:not(.tts-open) .tts-bar-outer { animation-duration: .01ms; }
+  body.tts-open :is(#chatbotBtn,#scrollTopBtn,.support-sticker,.mini-toast,.tts-bar-outer),
+  body.tts-closing:not(.tts-open) :is(#chatbotBtn,#scrollTopBtn,.support-sticker,.mini-toast,.tts-bar-outer) { animation-duration: .01ms; }
+}
+
+/* Reset bọc trong :where() để specificity = 0 — nếu không, selector có ID
+   (#tts-root) sẽ có độ ưu tiên CAO HƠN các class thường phía dưới, khiến
+   margin/padding của từng nút bị đè về 0. */
+:where(#tts-root *, #tts-root *::before, #tts-root *::after) {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif !important;
+  line-height: 1;
+}
+/* Dự phòng cho Safari < 14.1 (không hiểu :where/@supports selector()): cùng reset nhưng chọn bằng class .tts-rt (đặc hiệu 0,1,0, đứng trước mọi rule khác nên các class thường phía dưới vẫn thắng). */
+@supports not selector(:where(a)) {
+  .tts-rt *, .tts-rt *::before, .tts-rt *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', system-ui, Arial, sans-serif !important;
+    line-height: 1;
+  }
+}
+
+/* ── #tts-root: chỉ còn là 1 lớp phủ định vị, thanh thật (.tts-bar) nổi ở
+   giữa, cách 2 lề trái/phải và đáy màn hình 1 khoảng — không còn dính sát
+   full-width như bản cũ. ── */
+#tts-root {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 800;
+  display: flex;
+  justify-content: center;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(var(--tts-a) + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  pointer-events: none; /* vùng đệm trong suốt không chặn click nội dung phía dưới */
+  transition: padding-right .25s ease, opacity .2s ease;
+}
+#tts-root > * { pointer-events: auto; }
+
+.tts-bar-outer {
+  position: relative; width: 100%; max-width: 770px;
+  /* trượt lên từ dưới đáy màn hình (hoặc từ sau footer ở chế độ Lật/Cuộn), cùng nhịp --tts-k với các nút nổi.
+     Không dùng opacity để backdrop-filter (kính mờ) của .tts-bar không bị mất blur giữa chừng. */
+  transform: translateY(calc((1 - var(--tts-k)) * (100% + 40px)));
+}
+
+.tts-bar {
+  position: relative;
+  background: var(--tts-bg2);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--tts-bd);
+  border-radius: 20px;
+  padding: 11px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 14px 34px rgba(0,0,0,.4);
+  overflow: hidden; /* để .tts-prog bị cắt khít theo đúng góc bo tròn của thanh, thay vì nổi thành viên "thuốc" lơ lửng */
+}
+
+html.no-flex-gap .tts-bar>*+*{
+  margin-left:10px;
+}
+
+/* thanh tiến trình đoạn văn bản hiện tại — dải mỏng khít sát mép trên, được
+   .tts-bar (overflow:hidden) cắt theo đúng góc bo tròn nên không cần tự bo
+   góc/inset riêng nữa. */
+.tts-prog {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: transparent;
+}
+.tts-prog-fill { height: 100%; width: 0%; background: var(--tts-ac); transition: width .4s; }
+
+/* ── hàng nhỏ "Đang phát Chương N: ..." — mở rộng LÊN TRÊN thanh chính (đặt
+   trước .tts-bar trong DOM nên xếp phía trên nó theo luồng bình thường),
+   chỉ hiện khi người dùng đã rời khỏi chương đang phát (chapterDetached),
+   xem updateDetachedRow() trong tts.js. Bấm vào để quay lại đúng chương
+   đang phát. Cao 28px khi hiện (.show), co về 0 khi ẩn — xem animation bên
+   dưới. Nền/kính mờ giống thanh chính nhưng nhạt hơn 1 chút để phân biệt là
+   phần phụ, không phải điều khiển chính. */
+.tts-detached-row {
+  all: unset; box-sizing: border-box; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 0 14px;
+  /* Nền kính mờ giống hệt audio bar (.tts-bar dùng --tts-bg2) thay vì nền
+     gần như đục hoàn toàn (--tts-bg3) như trước — để thấy rõ hiệu ứng blur
+     phía sau giống thanh chính. */
+  background: var(--tts-bg2);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid transparent;
+  border-radius: 16px;
+  color: var(--tts-ac2);
+  box-shadow: 0 8px 20px rgba(0,0,0,0);
+  overflow: hidden;
+  /* Trạng thái ẩn mặc định: cao 0, mờ dần, hơi trượt xuống + thu nhỏ — khi
+     hiện (.show) sẽ "nở" lên và trượt vào đúng vị trí, thay vì bật/tắt đột
+     ngột bằng display:none. ResizeObserver trên .tts-bar-outer (tts.js)
+     tự bắt kịp chiều cao thay đổi trong lúc animate nên --tts-bar-h vẫn
+     luôn khớp mượt theo animation, không bị giật. */
+  height: 0; margin-bottom: 0; opacity: 0;
+  transform: translateY(10px) scale(.94);
+  pointer-events: none;
+  transition:
+    height var(--tts-fx-dur) var(--tts-fx-ease),
+    margin-bottom var(--tts-fx-dur) var(--tts-fx-ease),
+    opacity var(--tts-fx-dur) var(--tts-fx-ease),
+    transform var(--tts-fx-dur) var(--tts-fx-ease),
+    border-color var(--tts-fx-dur) var(--tts-fx-ease),
+    box-shadow var(--tts-fx-dur) var(--tts-fx-ease),
+    background .15s, color .15s;
+}
+html.no-flex-gap .tts-detached-row>*+*{
+  margin-left:6px;
+}
+.tts-detached-row.show {
+  height: 28px; margin-bottom: 6px; opacity: 1;
+  transform: translateY(0) scale(1);
+  border-color: var(--tts-bd);
+  box-shadow: 0 8px 20px rgba(0,0,0,.32);
+  pointer-events: auto;
+}
+/* Hover nhạt như nút tốc độ (.tts-spd:hover) thay vì sáng hẳn lên — phủ thêm
+   1 lớp trắng rất nhạt (.06) LÊN TRÊN nền kính mờ gốc (--tts-bg2), chứ
+   không thay hẳn bằng nền sáng như trước, để vẫn giữ đúng cảm giác blur
+   giống audio bar. */
+.tts-detached-row:hover {
+  background: linear-gradient(rgba(255,255,255,.06), rgba(255,255,255,.06)), var(--tts-bg2);
+  color: var(--tts-txt);
+}
+/* Ép 2 hàng phụ ("Đang phát ..." và "Nghe tiếp đoạn dang dở?") luôn CAO BẰNG NHAU khi cùng hiện: cùng chiều cao cố định 28px (khoá cả min/max),
+   cùng line-height 1 cho mọi chữ trong hàng để nội dung không tự làm hàng cao/thấp khác nhau, và không bị co lại khi chỗ chật. */
+#tts-detached-row, #tts-resume-row { flex: none; line-height: 1; }
+#tts-detached-row.show, #tts-resume-row.show { height: 28px; min-height: 28px; max-height: 28px; }
+#tts-detached-row .tts-detached-prefix, #tts-detached-row .tts-detached-label,
+#tts-resume-row .tts-detached-label { line-height: 1; }
+.tts-detached-ico { display: flex; align-items: center; flex-shrink: 0; color: var(--tts-ac); animation: tts-dot-pulse 1.4s ease-in-out infinite; }
+.tts-detached-ico svg { width: 12px; height: 12px; display: block; }
+/* Tiền tố "Đang phát " — hiện ở desktop, ẩn ở mobile (xem @media bên dưới)
+   để hàng chỉ còn tên chương cho gọn, đỡ chiếm chỗ trên màn hình hẹp. */
+.tts-detached-prefix { font-size: 12px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.tts-detached-label {
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+/* Hàng "Nghe tiếp đoạn dang dở?" (#tts-resume-row): nhãn cố định không bị co; phần "nơi nghe tiếp"
+   (tên truyện · chương, .tts-resume-where — chỉ hiện khi khác chương/truyện đang xem) co lại và cắt
+   bằng dấu … khi hết chỗ, nhất là trên màn hình hẹp. Khoảng cách do gap của hàng lo. */
+#tts-resume-row .tts-detached-label { flex-shrink: 0; }
+#tts-resume-row .tts-detached-label.tts-resume-where { flex: 0 1 auto; min-width: 0; opacity: .65; }
+/* Đang phát truyện KHÁC: hàng "Đang phát" luôn hiện tiền tố (kể cả mobile) dạng "Đang phát: Truyện A";
+   hàng resume đổi thành "Nghe tiếp: Truyện B" (ẩn dòng "Nghe tiếp đoạn dang dở?"). */
+.tts-detached-row.tts-other-story .tts-detached-prefix { display: inline; }
+.tts-detached-row.tts-other-story .tts-detached-prefix::after { content: ':'; }
+.tts-resume-next { display: none; font-size: 12px; font-weight: 600; white-space: nowrap; flex-shrink: 0; line-height: 1; }
+.tts-resume-next::after { content: ':'; }
+#tts-resume-row.tts-resume-other .tts-resume-next { display: inline; }
+#tts-resume-row.tts-resume-other .tts-resume-idle { display: none; }
+#tts-resume-row.tts-resume-other .tts-detached-label.tts-resume-where { opacity: 1; }
+
+/* ── thứ tự hiển thị các cụm trong .tts-bar ở desktop, khai báo tường minh
+   bằng "order" thay vì dựa vào thứ tự DOM — vì .tts-vol-wrap và .tts-status-row
+   giờ nằm lồng trong wrapper .tts-vol-side (display:contents ở desktop, xem
+   bên dưới) để phục vụ bố cục cột dọc riêng ở mobile; "order" đảm bảo thứ tự
+   nhìn thấy ở desktop vẫn y hệt như trước, không phụ thuộc việc lồng wrapper
+   này. ── */
+.tts-transport { order: 1; }
+.tts-status-group { order: 2; }
+.tts-speed-wrap { order: 3; }
+.tts-divider { order: 4; }
+.tts-vol-wrap { order: 5; }
+.tts-right { order: 6; }
+
+/* nhóm gộp nút nhạc nền + nút trạng thái — thay cho .tts-status-row đứng
+   riêng lẻ như trước, để 2 nút luôn dính sát nhau và cùng nhận 1 vị trí
+   ("order" ở desktop / "grid-area" ở mobile, xem @media bên dưới). */
+.tts-status-group { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+html.no-flex-gap .tts-status-group>*+*{
+  margin-left:4px;
+}
+
+/* wrapper bố cục cho mobile — ở desktop "biến mất" khỏi cây hộp
+   (display:contents) nên .tts-vol-wrap/.tts-status-row bên trong coi như vẫn
+   là con trực tiếp của .tts-bar, không ảnh hưởng gì tới layout desktop. */
+.tts-vol-side { display: contents; }
+
+/* ── cụm play / prev / next ── */
+.tts-transport { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+html.no-flex-gap .tts-transport>*+*{
+  margin-left:3px;
+}
+.tts-tbtn {
+  all: unset; cursor: pointer; box-sizing: border-box;
+  width: 32px; height: 32px; border-radius: 50%;
+  color: var(--tts-txt2); display: flex; align-items: center; justify-content: center;
+  transition: color .15s, background .15s;
+}
+.tts-tbtn svg { display: block; flex-shrink: 0; }
+/* "all: unset" ở trên đã reset outline về initial (ẩn), nhưng khi nút được
+   focus, UA stylesheet của trình duyệt áp 1 rule "button:focus{outline:...}"
+   có độ ưu tiên (specificity) NHỈNH HƠN class-only ".tts-tbtn{all:unset}"
+   (type+pseudo > class), nên vòng viền focus mặc định (viền tối bao quanh
+   nút, thấy rõ nhất ở nút play màu tím) vẫn hiện lại lúc bấm. Ghi đè thẳng
+   :focus/:focus-visible ở đây (class+pseudo, độ ưu tiên cao hơn) để tắt hẳn. */
+.tts-tbtn:focus,
+.tts-tbtn:focus-visible { outline: none; }
+.tts-tbtn:hover:not(:disabled) { color: var(--tts-txt); background: rgba(255,255,255,.06); }
+.tts-tbtn:disabled { opacity: .3; cursor: default; }
+.tts-tbtn-play { width: 40px; height: 40px; background: var(--tts-ac); color: #fff; }
+.tts-tbtn-play:hover:not(:disabled) { background: #4f52d9; color: #fff; }
+/* Nút play/pause đổi sang trạng thái "Dừng" (đỏ) khi người dùng đã rời khỏi
+   chương đang phát (chuyển qua chương khác trong lúc audio vẫn đang đọc nốt
+   chương cũ) — xem setUIState() trong tts.js. Dùng màu cố định #ff5656 thay
+   vì biến --tts-red (đổi theo theme) để nút Dừng luôn nổi bật nhất quán. */
+.tts-tbtn-stop { background: #ff5656; color: #fff; }
+.tts-tbtn-stop:hover:not(:disabled) { background: #ef4444; color: #fff; }
+.tts-divider { width: 1px; height: 22px; background: var(--tts-bd); flex-shrink: 0; }
+
+/* ── tốc độ (hàng nút nhanh trên thanh chính) ── */
+.tts-speed-wrap {
+  display: flex; align-items: center; gap: 3px; flex-shrink: 1; min-width: 0;
+  overflow-x: auto; scrollbar-width: none;
+}
+html.no-flex-gap .tts-speed-wrap>*+*{
+  margin-left:3px;
+}
+.tts-speed-wrap::-webkit-scrollbar { display: none; }
+.tts-spd {
+  all: unset; box-sizing: border-box; cursor: pointer;
+  font-size: 12px; font-weight: 600; color: var(--tts-txt2);
+  width: 50px; flex-shrink: 0; padding: 8px 0; border-radius: 8px;
+  text-align: center; white-space: nowrap; transition: color .15s, background .15s;
+}
+.tts-spd:hover { color: var(--tts-txt); background: rgba(255,255,255,.06); }
+.tts-spd.on { color: #fff; background: var(--tts-ac); }
+
+/* ── âm lượng (hàng chính) ── */
+.tts-vol-wrap { display: flex; align-items: center; gap: 6px; color: var(--tts-txt2); flex: 1 1 80px; min-width: 60px; }
+html.no-flex-gap .tts-vol-wrap>*+*{
+  margin-left:6px;
+}
+/* Bấm được để tắt/bật tiếng nhanh (volume = 0) — xem toggle ở #tts-vol-icon
+   trong tts.js. Cùng kích thước/hình dạng với nút nhạc nền (.tts-bgm-btn,
+   28x28 tròn) để 2 icon thẳng hàng theo chiều dọc giữa hàng trạng thái
+   (bgm) và hàng âm lượng ngay bên dưới. */
+.tts-vol-icon {
+  all: unset; box-sizing: border-box; cursor: pointer;
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--tts-txt2); transition: color .15s;
+}
+.tts-vol-icon svg { display: block; }
+.tts-vol-icon:hover { color: var(--tts-txt); }
+input[type="range"].tts-vol-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; flex: 1; height: 3px; border-radius: 2px; border: none; outline: none; cursor: pointer;
+  background: linear-gradient(to right, var(--tts-ac) 0%, var(--tts-ac) calc(var(--v, 80)*1%), var(--tts-bd2) calc(var(--v, 80)*1%), var(--tts-bd2) 100%);
+}
+input[type="range"].tts-vol-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--tts-ac); cursor: pointer; margin-top: 0; box-shadow: none; }
+input[type="range"].tts-vol-slider::-moz-range-thumb { width: 12px; height: 12px; border: none; border-radius: 50%; background: var(--tts-ac); cursor: pointer; box-shadow: none; }
+
+/* ── trạng thái (icon sóng âm 4 vạch, đổi màu theo trạng thái phát qua
+   currentColor). Đây là bản GỐC cho desktop — chỉ icon, không hiện chữ,
+   không nền/viền. Ở mobile có thêm nhãn chữ ngắn + nền/viền dạng pill, xem
+   khối override trong @media bên dưới.
+   Lưu ý căn chỉnh: khoảng cách flex gap 2 bên tuy bằng nhau (10px) nhưng
+   NHÌN không đều, vì các phần tử lân cận có "đệm" ẩn khác nhau quanh icon
+   của chính chúng — nút "Đoạn sau" (32x32, icon 16x16 → đệm ~8px mỗi bên),
+   nút tốc độ "1x" (rộng cố định 42px, chữ căn giữa → đệm ~14px mỗi bên) ở
+   desktop. Bù thêm margin-left để tổng khoảng cách nhìn thấy 2 bên bằng
+   nhau, thay vì chỉ canh giữa icon trong 1 khung đối xứng (không đủ vì gốc
+   vấn đề nằm ở phần tử lân cận, không phải icon trạng thái). */
+.tts-status-row {
+  display: inline-flex; align-items: center; flex-shrink: 0;
+  margin-left: 6px; cursor: pointer; color: var(--tts-txt3);
+}
+.tts-dot { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.tts-dot svg { display: block; }
+
+/* ── nút bật/tắt nhạc nền (icon-only, bên trái nút trạng thái) ── */
+.tts-bgm-btn {
+  all: unset; box-sizing: border-box; cursor: pointer;
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--tts-txt2); transition: color .15s, background .15s;
+}
+.tts-bgm-btn svg { display: block; }
+.tts-bgm-btn:hover { color: var(--tts-txt); }
+/* nhạc nền đã tắt — icon nốt nhạc gạch chéo, giữ cùng màu với lúc bật
+   (không làm mờ đi nữa) để 2 trạng thái nhất quán về màu sắc */
+.tts-bgm-btn.off { color: var(--tts-txt2); }
+/* Nhãn ngắn cạnh icon — ẩn mặc định ở desktop (bản gốc không có chữ), chỉ
+   mobile mới bật lên (xem @media bên dưới). */
+.tts-status-label {
+  display: none;
+  font-size: 12px; font-weight: 600; color: inherit;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tts-status-row.loading { color: var(--tts-ac); }
+.tts-status-row.loading .tts-dot { animation: tts-dot-pulse .9s ease-in-out infinite; }
+.tts-status-row.playing { color: var(--tts-ok); }
+/* Hiệu ứng "sóng âm nhấp nháy" kiểu Claude — CHỈ chạy khi đang phát
+   (.tts-status-row.playing), không cần hover như bên Claude. Từng vạch
+   (.tts-wave-bar, xem ICON_STATUS_WAVE_PLAYING trong tts.js) tự phồng
+   lên/co lại, animation-delay khác nhau (đặt inline trên từng vạch, cách
+   nhau 50ms) tạo cảm giác sóng chạy lần lượt từ trái qua phải thay vì cả
+   icon nhấp nháy đồng loạt như animation tts-dot-pulse cũ. */
+.tts-wave-bar { transform-box: fill-box; transform-origin: center; }
+.tts-status-row.playing .tts-wave-bar {
+  animation: tts-wave-ripple 1.8s ease-in-out infinite;
+}
+.tts-status-row.paused { color: var(--tts-warn); }
+.tts-status-row.err { color: var(--tts-red); }
+@keyframes tts-dot-pulse { 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+@keyframes tts-wave-ripple {
+  0%, 100% { transform: scaleY(.5); }
+  50% { transform: scaleY(1.15); }
+}
+
+/* ── cụm nút bên phải: cài đặt / đóng, và popover cài đặt neo dưới đây ── */
+.tts-right { display: flex; align-items: center; gap: 2px; margin-left: auto; flex-shrink: 0; position: relative; }
+html.no-flex-gap .tts-right>*+*{
+  margin-left:2px;
+}
+.tts-gear { position: relative; }
+.tts-gear.open { color: var(--tts-txt); background: rgba(255,255,255,.08); }
+
+/* ============================================================
+   BẢNG CÀI ĐẶT CŨ (popover) — ĐÃ BỎ.
+   Nút bánh răng giờ mở thẳng khung Cài đặt chính (mục "Nghe", xem index.html: toggleSettingsAt).
+   #tts-settings-panel vẫn còn trong DOM (tts.js dùng các ô bên trong làm nơi giữ trạng thái nội bộ)
+   nhưng luôn ẩn hẳn, nên các rule .tts-set-* / .tts-switch-* / .tts-dd-trigger bên dưới chỉ còn là
+   code chết — có thể dọn dần.
+============================================================ */
+.tts-settings { display: none !important; }
+
+/* "Hiện tốc độ trên thanh audio" tắt (Cài đặt → Nghe) → ẩn cụm nút tốc độ */
+#tts-root.tts-hide-speed .tts-speed-wrap { display: none; }
+
+.tts-set-row { padding: 10px 0; border-top: 1px solid var(--tts-bd); }
+.tts-set-row:first-of-type { border-top: none; padding-top: 0; }
+.tts-set-label { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--tts-txt2); margin-bottom: 8px; }
+.tts-set-label b { color: var(--tts-txt); font-weight: 600; }
+.tts-set-val { font-variant-numeric: tabular-nums; color: var(--tts-txt); font-weight: 600; }
+.tts-set-label-left { display: flex; align-items: center; gap: 8px; }
+html.no-flex-gap .tts-set-label-left>*+*{
+  margin-left:8px;
+}
+.tts-set-label-left .tts-mini-ic { color: var(--tts-txt2); display: flex; flex-shrink: 0; }
+
+.tts-set-slider-row { display: flex; align-items: center; gap: 8px; }
+
+html.no-flex-gap .tts-set-slider-row>*+*{
+  margin-left:8px;
+}
+.tts-set-slider-row .tts-mini-ic { color: var(--tts-txt2); flex-shrink: 0; }
+.tts-set-slider-row input[type="range"] { flex: 1; accent-color: var(--tts-ac); }
+
+/* hàng âm lượng giọng đọc trong panel: chỉ hiện khi thanh ở chế độ mobile
+   (đã bỏ khỏi hàng chính ở mobile, xem @media bên dưới) */
+.tts-set-volume { display: none; }
+
+/* bỏ đường phân cách giữa dropdown "Giọng đọc"/"Nhạc nền" và hàng âm lượng
+   ngay bên dưới mỗi mục — các cặp này gộp thành 1 khối liền, không cần
+   border-top mặc định của .tts-set-row */
+#tts-voice-vol-row,
+#tts-bgm-vol-row { border-top: none; padding-top: 0; }
+.tts-set-row.disabled { opacity: .45; pointer-events: none; }
+
+/* ---- dropdown (giọng đọc / nhạc nền) — dùng <select> gốc, giống hệt demo ---- */
+.tts-select-wrap { position: relative; }
+.tts-select {
+  all: unset; box-sizing: border-box; display: block; width: 100%;
+  background: rgba(255,255,255,.05); border: 1px solid var(--tts-bd); border-radius: 9px;
+  padding: 8px 30px 8px 10px; font-size: 12.5px; color: var(--tts-txt); cursor: pointer;
+  transition: border-color .15s, background .15s;
+  line-height: 1.5;
+}
+.tts-select:hover { border-color: rgba(255,255,255,.26); background: rgba(255,255,255,.08); }
+.tts-select:focus-visible { border-color: var(--tts-ac); }
+.tts-select:disabled { opacity: .4; cursor: not-allowed; }
+.tts-select option { background: #1c1e25; color: var(--tts-txt); }
+.tts-select-wrap .tts-mini-ic {
+  position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+  color: var(--tts-txt2); pointer-events: none; display: flex;
+}
+.tts-select-wrap:has(.tts-select:disabled) .tts-mini-ic { opacity: .4; }
+.tts-select-note { font-size: 11px; color: var(--tts-txt3); line-height: 1.5; margin-top: 8px; }
+.tts-select-note a { color: var(--tts-ac2); text-decoration: underline; cursor: pointer; }
+
+/* ---- dropdown kiểu menu nổi (giọng đọc / nhạc nền) — thay cho <select> gốc,
+   giống mẫu "pc-menu": nút bấm hiện lựa chọn hiện tại, bấm ra 1 menu nổi
+   (position: fixed, tự tính toạ độ bằng JS) liệt kê từng lựa chọn kèm dấu
+   check ở mục đang chọn; nhạc nền còn có thêm dòng lưu ý ở cuối menu. ---- */
+.tts-dd { position: relative; }
+.tts-dd-trigger {
+  all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between;
+  width: 100%; gap: 8px;
+  background: rgba(255,255,255,.05); border: 1px solid var(--tts-bd); border-radius: 9px;
+  padding: 8px 10px; font-size: 12.5px; color: var(--tts-txt); cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+html.no-flex-gap .tts-dd-trigger>*+*{
+  margin-left:8px;
+}
+.tts-dd-trigger-left { display: flex; align-items: center; gap: 8px; overflow: hidden; min-width: 0; }
+html.no-flex-gap .tts-dd-trigger-left>*+*{
+  margin-left:8px;
+}
+.tts-dd-trigger-left .tts-mini-ic { color: var(--tts-txt2); flex-shrink: 0; display: flex; }
+.tts-dd-trigger-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.5; }
+.tts-dd-trigger:hover { border-color: rgba(255,255,255,.26); background: rgba(255,255,255,.08); }
+.tts-dd-trigger.open { border-color: var(--tts-ac); }
+.tts-dd-trigger[disabled] { opacity: .4; cursor: not-allowed; }
+.tts-dd-trigger .tts-mini-ic { color: var(--tts-txt2); flex-shrink: 0; display: flex; }
+
+.tts-dd-menu {
+  position: fixed; z-index: 3000;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--tts-bg3);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--tts-bd);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.5);
+  opacity: 0; transform: translateY(6px) scale(.98); pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease;
+}
+.tts-dd-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.tts-dd-list { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+html.no-flex-gap .tts-dd-list>*+*{
+  margin-top:1px;
+}
+.tts-dd-item {
+  all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; width: 100%; padding: 8px 10px; border-radius: 8px;
+  font-size: 12.5px; color: var(--tts-txt2); cursor: pointer; white-space: nowrap;
+  transition: background .15s, color .15s;
+  line-height: 1.5;
+}
+html.no-flex-gap .tts-dd-item>*+*{
+  margin-left:10px;
+}
+.tts-dd-item:hover { background: rgba(255,255,255,.06); color: var(--tts-txt); }
+.tts-dd-item.active { color: var(--tts-txt); background: var(--tts-ac-dim); }
+.tts-dd-item.active:hover { background: var(--tts-ac-dim); }
+/* nhóm icon + tên lựa chọn bên trái, tách khỏi dấu check bên phải để
+   overflow/ellipsis chỉ áp dụng cho phần tên, không đẩy dấu check ra ngoài */
+.tts-dd-item-left { display: flex; align-items: center; gap: 8px; overflow: hidden; min-width: 0; }
+html.no-flex-gap .tts-dd-item-left>*+*{
+  margin-left:8px;
+}
+.tts-dd-item-left .tts-mini-ic { color: var(--tts-txt2); flex-shrink: 0; display: flex; transition: color .15s; }
+.tts-dd-item.active .tts-dd-item-left .tts-mini-ic { color: var(--tts-ac2); }
+.tts-dd-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.5; }
+.tts-dd-item > svg { flex-shrink: 0; opacity: 0; color: var(--tts-ac2); transition: opacity .12s; }
+.tts-dd-item.active > svg { opacity: 1; }
+.tts-dd-note {
+  font-size: 11px; color: var(--tts-txt3); line-height: 1.5;
+  padding: 8px 8px 4px; margin-top: 4px; border-top: 1px solid var(--tts-bd);
+  flex-shrink: 0;
+}
+.tts-dd-note a { color: var(--tts-ac2); text-decoration: underline; cursor: pointer; }
+[data-theme="light"] .tts-dd-item svg { color: var(--tts-ac2); }
+
+/* hàng có tiêu đề bên trái + switch bên phải, dropdown bên dưới (Nhạc nền) */
+.tts-set-titlesw { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.tts-set-titlesw span { font-size: 12.5px; color: var(--tts-txt); }
+
+/* switch bật/tắt */
+.tts-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
+html.no-flex-gap .tts-switch-row>*+*{
+  margin-left:10px;
+}
+.tts-switch-row span { font-size: 12.5px; color: var(--tts-txt); }
+.tts-switch-row-label { display: flex; align-items: center; gap: 8px; }
+html.no-flex-gap .tts-switch-row-label>*+*{
+  margin-left:8px;
+}
+.tts-switch-row-label .tts-mini-ic { color: var(--tts-txt2); flex-shrink: 0; display: flex; }
+/* Các nút bật/tắt (nhạc nền, tự động chuyển chương, cuộn theo audio...)
+   thu nhỏ 10% so với kích thước gốc (38x22 → 34.2x19.8, thumb 18 → 16.2). */
+.tts-switch { position: relative; width: 34.2px; height: 19.8px; flex-shrink: 0; }
+.tts-switch-track { position: absolute; top:0;right:0;bottom:0;left:0;inset:0; background: var(--tts-switch-track); border-radius: 999px; transition: background .18s; cursor: pointer; }
+.tts-switch-thumb { position: absolute; top: 1.8px; left: 1.8px; width: 16.2px; height: 16.2px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: transform .18s; pointer-events: none; }
+.tts-switch.on .tts-switch-track { background: var(--tts-ac); }
+.tts-switch.on .tts-switch-thumb { transform: translateX(14.4px); }
+
+input[type="range"] { height: 3px; cursor: pointer; -webkit-appearance: none; appearance: none; border-radius: 2px; outline: none; border: none; background: rgba(255,255,255,.18); }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); margin-top: -5px; }
+input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+
+/* ============================================================
+   BỐ CỤC THANH — chia 2 dòng, nút to (trước đây chỉ áp dụng cho mobile
+   trong @media max-width:620px, nay bỏ điều kiện màn hình để desktop và
+   iPad dùng CHUNG một bố cục y hệt mobile — chỉ khác nhau ở chỗ NEO thanh
+   vào đâu trên màn hình, xem khối "NEO VỊ TRÍ THANH" phía dưới file.
+============================================================ */
+  /* Chuyển .tts-bar sang CSS Grid để đặt đúng vị trí từng cụm theo 2 khu
+     vực rõ rệt: khu TRÁI (transport) trải dọc suốt 2 hàng, khu PHẢI (trạng
+     thái/cài đặt/đóng/âm lượng) chia 2 hàng — hàng 1: trạng thái + cài đặt +
+     đóng; hàng 2: thanh âm lượng (chỉ nằm trong khu phải, KHÔNG tràn sang
+     dưới cụm play/vạch phân cách). Hàng 3 (cụm tốc độ) trải hết chiều rộng.
+     grid-template-columns: cột 1 = transport (auto), cột 2 = vạch phân
+     cách (auto), cột 3 = trạng thái (1fr, co giãn), cột 4 = cài đặt/đóng
+     (auto) — âm lượng ở hàng 2 trải từ cột 3 tới hết cột 4 (đúng bằng bề
+     rộng khu phải, không đụng vào cột transport/vạch phân cách). */
+  .tts-bar {
+    display: grid;
+    /* minmax(0,1fr) thay vì 1fr trần: cột "status"/"volume" (1fr) mặc định
+       có min-width:auto = bề rộng nội dung tối thiểu của nó (nhãn trạng
+       thái, thanh âm lượng...) — trên màn hình rất hẹp (Galaxy Fold, các
+       máy gập...) tổng bề rộng 4 cột (transport auto + divider auto +
+       status content-width + right auto) có thể VƯỢT quá bề ngang thật của
+       .tts-bar, mà .tts-bar lại overflow:hidden (để bo góc thanh tiến
+       trình phía trên) → phần vượt ra ngoài (đúng lúc là cột "right" cuối
+       cùng chứa nút cài đặt/đóng) bị cắt lẹm mất. minmax(0,1fr) cho phép
+       cột này co về 0 khi thiếu chỗ, nhường chỗ để 2 cột auto (transport,
+       right) luôn hiện đủ — nội dung bên trong (nhãn trạng thái) đã tự ẩn
+       chữ khi bị tràn (xem .tts-status-notext) nên co về 0 không mất gì
+       quan trọng, chỉ mất phần chữ nhãn phụ. */
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "transport divider status right"
+      "transport divider volume volume"
+      "speed speed speed speed";
+    column-gap: 10px; row-gap: 6px;
+    padding: 10px 10px 8px;
+  }
+
+  /* Hàng "Đang phát Chương N: ..." ở mobile: bỏ chữ "Đang phát " thừa, chỉ
+     giữ lại tên chương (Vd: "Chương 100: Tiêu đề") cho gọn màn hình hẹp. */
+  .tts-detached-prefix { display: none; }
+
+  .tts-transport { grid-area: transport; flex-shrink: 0; gap: 6px; align-self: stretch; }
+  .tts-transport .tts-tbtn { width: 42px; height: 42px; }
+  .tts-transport .tts-tbtn svg { width: 21px; height: 21px; }
+  .tts-transport .tts-tbtn-play { width: 55px; height: 55px; }
+  .tts-transport .tts-tbtn-play svg { width: 24px; height: 24px; }
+
+  /* vạch phân cách giữa cụm play/prev/next và toàn bộ khu phải (trạng
+     thái/cài đặt/đóng/âm lượng) — trải dọc suốt 2 hàng, khớp chiều cao
+     với cột transport bên trái. */
+  .tts-divider { display: block; grid-area: divider; align-self: stretch; height: auto; }
+
+  /* .tts-vol-side chỉ còn là wrapper bọc DOM (không lồng layout riêng nữa) —
+     dùng display:contents để 2 con của nó (.tts-vol-wrap, .tts-status-row)
+     trở thành item của grid, tự đặt grid-area riêng bên dưới: trạng thái ở
+     hàng 1 (ô "status"), âm lượng ở hàng 2 (ô "volume", vẫn nằm trong khu
+     phải — bên phải cụm play như cũ, không tràn sang trái). */
+  .tts-vol-side { display: contents; }
+
+  /* margin-left bù thêm: nút "Đoạn sau" (icon Next) ngay trước vạch phân
+     cách có kích thước nút 42px nhưng icon bên trong chỉ 21px, nên còn
+     ~10.5px "đệm ẩn" giữa icon và mép nút/vạch phân cách; bên phải vạch
+     phân cách (trạng thái/âm lượng) nút nhạc nền/nút loa giờ cũng có "đệm
+     ẩn" riêng (28px nút, icon 14px → ~7px mỗi bên) nên chỉ cần bù thêm
+     3.5px nữa (10.5 - 7) để 2 khoảng cách NHÌN THẤY 2 bên vạch phân cách
+     bằng nhau — trước đây bù nguyên 10px (tính cho lúc icon nhạc nền/loa
+     chưa có khung nút 28px bao quanh) nên bị lệch, khoảng cách bên phải
+     rộng hơn hẳn bên trái. Bù cho cả .tts-vol-wrap (hàng dưới) cùng giá trị
+     để 2 hàng thẳng cột với nhau.
+     gap (13.5px): giảm tiếp từ 17.5px xuống 13.5px (-4px) theo yêu cầu thu
+     hẹp cả 3 khoảng lại — xem điều chỉnh tương ứng ở margin-right của
+     .tts-status-row và gap của .tts-right bên dưới, cả 3 cùng nhắm về mức
+     thấp mới ~27px (mức sàn do "đệm ẩn" quanh icon quyết định — xem
+     .tts-right, gap ở đó đã về 0, không thể giảm khoảng cài đặt→đóng thêm
+     nữa nếu không thu nhỏ icon/nút). */
+  .tts-vol-side .tts-status-group {
+    grid-area: status; justify-content: flex-start; gap: 13.5px;
+  }
+  /* Nút trạng thái kéo dài lấp đầy hết phần rộng còn lại sau icon nhạc nền
+     (flex:1) — giống hàng âm lượng bên dưới (icon loa bên trái, thanh
+     trượt chiếm hết phần còn lại), thay vì co khít nội dung rồi dồn cả
+     cụm vào giữa như trước. */
+  /* margin-right: giảm tiếp từ 5px xuống 1px (-4px), cùng mức giảm với
+     .tts-status-group và .tts-right, để 3 khoảng cách vẫn bằng nhau nhưng
+     hẹp lại còn ~27px (mức sàn — xem giải thích ở .tts-right). */
+  .tts-vol-side .tts-status-row {
+    flex: 1; margin-left: 0; margin-right: 1px; justify-content: center; gap: 6px;
+    min-width: 34px; height: 28px; padding: 0 8px;
+    border-radius: 16px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid var(--tts-bd);
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  /* Icon sóng âm giờ rộng hơn cao (vạch dãn ra theo chiều ngang) — giữ
+     đúng tỉ lệ khung viewBox (31:20) thay vì ép vuông 13x13 như trước (sẽ
+     làm méo icon, vạch bị bóp lại theo chiều ngang). */
+  .tts-vol-side .tts-status-row .tts-dot svg { width: 20px; height: 13px; }
+  .tts-vol-side .tts-bgm-btn { width: 28px; height: 28px; }
+  /* Nút trạng thái chỉ hiện icon — không còn hiện chữ ở mobile nữa (bản gốc
+     desktop vốn đã icon-only, xem .tts-status-label mặc định display:none
+     phía trên). */
+  .tts-vol-side .tts-status-row.loading {
+    background: rgba(99,102,241,.14); border-color: rgba(99,102,241,.4);
+  }
+  .tts-vol-side .tts-status-row.playing {
+    background: rgba(74,222,128,.14); border-color: rgba(74,222,128,.4);
+  }
+  .tts-vol-side .tts-status-row.paused {
+    background: rgba(251,191,36,.14); border-color: rgba(251,191,36,.4);
+  }
+  .tts-vol-side .tts-status-row.err {
+    background: rgba(248,113,113,.14); border-color: rgba(248,113,113,.4);
+  }
+
+  /* cụm cài đặt/đóng ở cuối hàng 1 — nằm NGANG (cài đặt trước, đóng sau,
+     đúng thứ tự DOM gốc, không còn xếp dọc như trước).
+     gap giảm tiếp từ 4px xuống 0px: đã là mức sàn — 2 nút chạm khung nhau,
+     khoảng cách nhìn thấy giữa icon cài đặt/đóng lúc này chỉ còn do "đệm
+     ẩn" quanh icon bên trong mỗi nút quyết định (~27px), không thể giảm
+     thêm nếu không thu nhỏ icon/nút. */
+  .tts-right {
+    grid-area: right; flex-direction: row; gap: 0; margin-left: 0; flex-shrink: 0;
+  }
+  /* icon cài đặt/đóng: to nhẹ lên 15x15 cho dễ bấm/nhìn ở mobile */
+  .tts-right svg { width: 15px; height: 15px; }
+
+  /* hàng 2: thanh âm lượng — nằm dưới hàng trạng thái/cài đặt/đóng, chỉ
+     trải rộng trong khu phải (ô "volume" = cột trạng thái + cột cài đặt/
+     đóng gộp lại), vẫn ở bên phải cụm play/vạch phân cách như bản gốc.
+     padding-right bù trừ đệm ẩn của nút Đóng (X): nút .tts-tbtn 32px chứa
+     icon chỉ 15px, dư ~8.5px giữa icon và mép nút — nếu không bù, đầu phải
+     thanh âm lượng (không có đệm ẩn nào) sẽ tràn ra ngoài, lệch quá icon X. */
+  .tts-vol-side .tts-vol-wrap {
+    grid-area: volume; height: 32px; min-width: 0; margin-left: 3.5px; padding-right: 8.5px;
+    display: flex; align-items: center;
+  }
+  /* icon loa: giữ nguyên kích thước gốc (14px, giống icon nhạc nền) để 2
+     icon thẳng hàng và đồng bộ tỉ lệ với nhau — trước đây to hơn (15px) nên
+     lệch nhẹ so với icon nhạc nền ngay phía trên. */
+  .tts-vol-side .tts-vol-icon svg { display: block; }
+
+  /* hàng 3: cụm tốc độ — xuống dòng riêng, trải hết chiều ngang thanh */
+  .tts-speed-wrap { grid-area: speed; width: 100%; padding-top: 6px; border-top: 1px solid var(--tts-bd); overflow-x: visible; }
+  .tts-speed-wrap .tts-spd { flex: 1 1 0; text-align: center; padding-left: 4px; padding-right: 4px; }
+
+  /* Ẩn hẳn chữ trạng thái khi nó KHÔNG ĐỦ CHỖ hiển thị trọn vẹn (thay vì bị
+     cắt dở thành "..."). Không dùng ngưỡng bề rộng cố định (container
+     query) vì mỗi nhãn dài ngắn khác nhau (Chưa phát/Đang tải/Đang phát/Tạm
+     dừng) nên cùng 1 ngưỡng px sẽ ẩn hụt hoặc ẩn thừa tuỳ nhãn — thay vào đó
+     tts.js TỰ ĐO xem chữ có thật sự bị tràn (scrollWidth > clientWidth) hay
+     không rồi mới gắn class .tts-status-notext (xem updateStatusLabelOverflow()
+     trong tts.js). Nhờ vậy màn hình đủ rộng để hiện trọn chữ vẫn hiện bình
+     thường, chỉ ẩn đúng lúc thật sự không đủ chỗ. */
+  .tts-status-row.tts-status-notext .tts-status-label { display: none; }
+
+/* bảng cài đặt: full chiều rộng, 2 cạnh trái/phải thẳng hàng với audio bar
+   (.tts-bar-outer/.tts-bar rộng bằng nhau — xem .tts-bar không set width
+   riêng nên mặc định lấp đầy .tts-bar-outer) */
+.tts-settings { left: 0; right: 0; width: auto; max-width: none; }
+
+/* ── Màn hình siêu hẹp (điện thoại gập kiểu Galaxy Fold, ~280-344px) ──
+   Bản mobile ở trên (42/55px nút transport, gap 10px, padding 10px) vẫn
+   hơi rộng so với các máy này, dù đã có minmax(0,1fr) ở trên chống tràn —
+   thu thêm 1 nấc kích thước nút + khoảng cách để hàng 1 (transport | divider
+   | status | right) rộng rãi hơn, đỡ phải co cột status về gần 0. */
+@media (max-width: 360px) {
+  .tts-bar { column-gap: 6px; padding: 9px 8px 7px; }
+
+  .tts-transport { gap: 3px; }
+  .tts-transport .tts-tbtn { width: 36px; height: 36px; }
+  .tts-transport .tts-tbtn svg { width: 18px; height: 18px; }
+  .tts-transport .tts-tbtn-play { width: 46px; height: 46px; }
+  .tts-transport .tts-tbtn-play svg { width: 20px; height: 20px; }
+
+  /* cụm cài đặt/đóng: giảm khoảng cách giữa 2 nút và độ rộng mỗi nút 1 chút
+     để chắc chắn không bao giờ bị cột "status" ở giữa đẩy tràn ra ngoài. */
+  .tts-right { gap: 0; }
+  .tts-right .tts-tbtn { width: 30px; height: 30px; }
+  .tts-right svg { width: 14px; height: 14px; }
+
+  /* margin-left + gap bù cho màn hình siêu hẹp: cùng công thức trên nhưng
+     theo kích thước nút ở breakpoint này (transport 36px/icon 18px → đệm
+     ẩn 9px; nút nhạc nền/loa 26px/icon 14px → đệm ẩn 6px; nút cài đặt/đóng
+     30px/icon 14px → đệm ẩn 8px; column-gap 6px)
+     → margin-left = 9 - 6 = 3px; gap = (6 + 8) - 6 = 8px, để khoảng cách
+     nhìn thấy 2 bên nút trạng thái bằng nhau, giống bên trái/phải vạch
+     phân cách. */
+  .tts-vol-side .tts-status-group { margin-left: 3px; gap: 8px; }
+  /* margin-right nhỏ hơn ở breakpoint này (~4px) vì nút/icon đều thu nhỏ lại
+     (30px/14px) nên chênh lệch đệm ẩn giữa icon bánh răng/đóng cũng nhỏ theo
+     tỉ lệ — xem giải thích đầy đủ ở rule .tts-vol-side .tts-status-row phía
+     trên. */
+  .tts-vol-side .tts-status-row { margin-left: 0; margin-right: 4px; min-width: 24px; padding: 0 6px; }
+  .tts-vol-side .tts-bgm-btn { width: 26px; height: 26px; }
+  .tts-vol-side .tts-vol-icon { width: 26px; height: 26px; }
+  .tts-vol-side .tts-vol-wrap { margin-left: 3px; padding-right: 6px; }
+
+  /* hàng tốc độ: bớt đệm ngang mỗi nút để 7 mốc tốc độ (1x…3x) không bị
+     dồn cụm/tràn ngang trên bề rộng quá hẹp. */
+  .tts-speed-wrap .tts-spd { padding-left: 2px; padding-right: 2px; font-size: 11.5px; }
+}
+
+/* ============================================================
+   NEO VỊ TRÍ THANH THEO KÍCH THƯỚC MÀN HÌNH
+   - Điện thoại thật (<=620px): thanh nằm giữa, gần full chiều rộng màn
+     hình, y như bản mobile gốc trước đây (không đổi).
+   - Máy tính bảng (iPad) & desktop (>620px): thanh được đẩy hẳn sang lề
+     PHẢI thay vì nằm giữa, và giới hạn bề rộng lại bằng khoảng 1 chiếc
+     điện thoại (400px) thay vì kéo dài theo .tts-bar-outer gốc (770px)
+     — để dành khoảng trống bên trái cho nội dung chương hiển thị nhiều
+     hơn, đúng như trên mobile chỉ là bản thu nhỏ nổi ở góc màn hình.
+============================================================ */
+@media (min-width: 621px) {
+  #tts-root {
+    justify-content: flex-end;
+    /* giữ safe-area trái/phải (tai thỏ, góc bo khi xoay ngang iPhone / iPad) */
+    padding: 0 max(24px, env(safe-area-inset-right, 0px)) 21px max(24px, env(safe-area-inset-left, 0px));
+  }
+  .tts-bar-outer { max-width: 360px; }
+
+  /* cụm prev/play/next thu nhỏ lại 1 chút so với bản mobile (40/58px) —
+     panel bên này đứng lệch góc màn hình chứ không cần to như mobile cầm
+     tay, thu nhỏ cụm này kéo theo panel hẹp lại tương ứng ở trên. */
+  .tts-transport .tts-tbtn { width: 34px; height: 34px; }
+  .tts-transport .tts-tbtn svg { width: 18px; height: 18px; }
+  .tts-transport .tts-tbtn-play { width: 48px; height: 48px; }
+  .tts-transport .tts-tbtn-play svg { width: 20px; height: 20px; }
+}
+
+/* ── Nút nổi "Nghe" ở lề phải (giống extension) ── */
+.tts-float-btn {
+  position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+  z-index: 700;
+  background: var(--tts-ac);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,.18); border-right: none;
+  border-radius: 8px 0 0 8px;
+  box-sizing: border-box;
+  width: calc(38px + env(safe-area-inset-right, 0px)); height: 48px; padding-right: env(safe-area-inset-right, 0px);
+  display: none; /* mặc định ẩn, JS bật lên khi có chương truyện đang mở */
+  align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.tts-float-btn:hover { background: #4f52d9; }
+.tts-float-btn.on { background: var(--tts-ac); }
+.tts-float-btn svg { display: block; }
+
+/* Khi panel "Ghi nhớ quan hệ nhân vật" đang mở, nút nổi này phải chìm
+   xuống dưới panel (panel neo bên phải rộng 295px, z-index 300). */
+body.charmem-open .tts-float-btn { z-index: 250; }
+
+/* Mở "Bộ nhớ nhân vật" (body.charmem-open) thì ẨN audio bar ở MỌI kích thước màn hình — giống khi mở Cài đặt
+   (body.settings-open, xem cuối file); đóng panel thì hiện lại. Các nút nổi (cuộn lên, chatbot, sticker) đã được
+   index.html ẩn theo body.charmem-open. Chỉ ẩn hiển thị — âm thanh vẫn đọc bình thường. */
+body.charmem-open #tts-root { display: none !important; }
+
+/* Audio bar khi mở "Tủ truyện"/"Mục lục" (.left-area, body.drawer-open):
+   panel này khác charmem ở chỗ nó là 1 CỘT CỐ ĐỊNH bên trái (300px, không
+   phải overlay) ở mọi kích thước màn hình > 680px — không hề chồng lên
+   audio bar đang neo bên phải nên KHÔNG được ẩn ở đó (nếu ẩn, bar sẽ biến
+   mất vĩnh viễn trên desktop vì mặc định .left-area luôn mở sẵn). Nó chỉ
+   chuyển thành overlay full màn hình (đè lên mọi thứ, kể cả audio bar) ở
+   đúng breakpoint <=680px mà index.html đang dùng cho .left-area — nên chỉ
+   ẩn audio bar trong đúng phạm vi đó, không dùng lại breakpoint 620px của
+   charmem (2 panel có ngưỡng chuyển overlay khác nhau). */
+@media (max-width: 680px) {
+  body.drawer-open #tts-root { display: none !important; }
+}
+
+/* Ở mobile (<=680px) nút nổi được thay bằng nút "Nghe" trong toolbar
+   (#listenTbBtn) — nút nổi lúc này dễ khó bấm/che nội dung. */
+@media (max-width: 680px) {
+  .tts-float-btn { display: none !important; }
+}
+
+/* ── Tooltip khi bôi đen văn bản trong nội dung chương ── */
+#tts-sel-tooltip {
+  position: fixed; z-index: 2147483647;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  display: none; flex-direction: column; align-items: flex-start; gap: 4px;
+}
+#tts-sel-icon-btn {
+  height: 32px; padding: 0 13px 0 10px; border-radius: 16px;
+  background: var(--tts-ac); border: 1px solid rgba(255,255,255,.18);
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px;
+  color: #fff; font: 600 13px/1 'Segoe UI', system-ui, Arial, sans-serif; white-space: nowrap;
+  transition: background .15s; flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(0,0,0,.3);
+}
+html.no-flex-gap #tts-sel-icon-btn>*+*{
+  margin-left:7px;
+}
+#tts-sel-icon-btn:hover { background: #4f52d9; }
+#tts-sel-icon-btn svg { display: block; flex-shrink: 0; }
+/* Chữ "Đọc văn bản" bị lệch thấp so với icon (Segoe UI có khoảng trống dưới đường cơ sở) → nâng chữ lên ~2px. */
+#tts-sel-icon-btn span { display: block; line-height: 1; position: relative; top: -1px; padding-bottom: 2px; }
+
+/* ── Khi thanh TTS đang mở: chừa chỗ cho nội dung & các nút nổi khác ──
+   --tts-bar-h được tts.js đo và ghi động (chiều cao thật của .tts-bar). */
+body.tts-open .reading-area {
+  padding-bottom: calc(var(--tts-bar-h, 130px) + 40px + env(safe-area-inset-bottom, 0px));
+  /* đã bỏ transition padding-bottom: animate padding của vùng đọc = layout lại mỗi khung hình đúng lúc thanh đang trượt */
+}
+/* Nút chatbot + nút cuộn lên + donate + toast: vị trí = vị trí gốc + độ nâng
+   (--tts-lift, đã nhân sẵn với tiến độ --tts-k) nên trượt lên/xuống ĐÚNG CÙNG
+   nhịp với thanh audio. KHÔNG còn transition `bottom` (xem ghi chú ở đầu file).
+   Selector có thêm "body" để thắng rule gốc cùng cấp trong index.html. */
+body #chatbotBtn {
+  bottom: calc(38px + var(--tts-lift) + env(safe-area-inset-bottom, 0px));
+  transition: opacity .2s, transform .2s, background .15s;
+}
+body #scrollTopBtn {
+  bottom: calc(38px + var(--tts-lift) + env(safe-area-inset-bottom, 0px));
+  transition: opacity .2s, transform .2s;
+}
+/* #scrollTopBtn đang hiện thì xếp CAO HƠN chatbot 1 nấc (42px + 12px hở) */
+body #scrollTopBtn.show {
+  bottom: calc(92px + var(--tts-lift) + env(safe-area-inset-bottom, 0px));
+}
+/* z-index chỉ cần cao hơn thanh audio khi thanh đang mở */
+body.tts-open #scrollTopBtn { z-index: 850; }
+body.tts-open #chatbotBtn { z-index: 851; }
+@media (max-width: 680px) {
+  body #chatbotBtn,
+  body #scrollTopBtn { bottom: calc(25px + var(--tts-lift) + env(safe-area-inset-bottom, 0px)); }
+  body #scrollTopBtn.show { bottom: calc(73px + var(--tts-lift) + env(safe-area-inset-bottom, 0px)); }
+}
+/* Donate / mini-toast: chỉ điện thoại thật (<=620px) mới bị thanh audio che */
+@media (max-width: 620px) {
+  body .support-sticker,
+  body .mini-toast { bottom: calc(25px + var(--tts-lift) + env(safe-area-inset-bottom, 0px)); }
+  body.tts-open .support-sticker { z-index: 850; }
+}
+
+/* ── Highlight đoạn (chunk) đang được đọc — bọc bằng <mark> trong tts.js
+   (highlightChunkRange). Không dùng var(--tts-ac-dim) vì biến đó chỉ được
+   ghi đè theo theme sáng/tối bên trong phạm vi #tts-root — trong khi
+   .tts-reading-highlight lại nằm trong nội dung chương (.reading-content),
+   ngoài phạm vi đó — nên dùng thẳng rgba cố định, đủ nhạt để không đổi màu
+   chữ, hoạt động tốt trên cả nền sáng lẫn tối. */
+.tts-reading-highlight {
+  background: rgba(99, 102, 241, .3);
+  color: inherit;
+  border-radius: 3px;
+  transition: background .15s ease;
+}
+
+/* ── Chế độ sáng ──
+   LƯU Ý: định nghĩa biến ngay trên [data-theme="light"] (phần tử cha mang
+   thuộc tính này, không phải trên #tts-root) — vì CSS custom properties tự
+   kế thừa xuống MỌI phần tử con trong DOM, kể cả những menu nổi được JS
+   appendChild thẳng vào <body>, nằm NGOÀI #tts-root (vd .tts-dd-menu,
+   #tts-sel-menu). Nếu đặt biến trong "[data-theme="light"] #tts-root" như
+   trước, các menu đó sẽ không thừa hưởng được bộ biến sáng này (vẫn lấy
+   giá trị tối mặc định ở :root) — đây chính là lý do menu "Giọng đọc" bị
+   tối màu dù trang đang ở chế độ sáng. */
+[data-theme="light"] {
+  --tts-bg2: rgba(255,255,255,.92);
+  --tts-bg3: rgba(255,255,255,.94);
+  --tts-bg4: rgba(0,0,0,.04);
+  --tts-bg-solid: #ffffff;
+  --tts-bg-hov: rgba(0,0,0,.06);
+  --tts-bd:  rgba(0,0,0,.09);
+  --tts-bd2: rgba(0,0,0,.16);
+  --tts-txt:  #2d2d2d;
+  --tts-txt2: #5a5a5a;
+  --tts-txt3: #7c848d;
+  --tts-ac:     #6366f1;
+  --tts-ac2:    #4f46e5;
+  --tts-ac-dim: #eef0ff;
+  --tts-ok:      #16a34a;
+  --tts-warn:    #d97706;
+  --tts-red:     #dc2626;
+  --tts-switch-track: rgba(0,0,0,.14);
+}
+[data-theme="light"] .tts-bar { box-shadow: 0 10px 28px rgba(0,0,0,.12); }
+/* Viền audio bar / bảng cài đặt / hàng "Đang phát" ở bản sáng: --tts-bd (.09) quá nhạt trên nền kính trắng nên nhìn như không có viền
+   -> dùng --tts-bd2 (.16) cho riêng 3 khung nổi này; các đường kẻ phân cách bên trong vẫn dùng --tts-bd nhạt. */
+[data-theme="light"] .tts-bar,
+[data-theme="light"] .tts-detached-row.show { border-color: var(--tts-bd2); }
+/* Nút trạng thái lúc CHƯA PHÁT (không có class loading/playing/paused/err):
+   nền mặc định rgba(255,255,255,.05) gần như trong suốt nên hoà lẫn vào
+   nền trắng của thanh ở chế độ sáng, nhìn như không có nền — đổi sang xám
+   nhạt (rgba(0,0,0,.06), cùng tông với --tts-bg-hov ở chế độ sáng) để vẫn
+   thấy rõ viên "pill" ngay cả khi chưa phát. Dùng :not(...) để CHỈ áp dụng
+   cho trạng thái chưa phát, không đụng tới màu nền riêng của các trạng
+   thái loading/playing/paused/err (vốn đã có màu tint riêng theo trạng
+   thái, đủ rõ trên cả nền sáng lẫn tối). */
+[data-theme="light"] .tts-vol-side .tts-status-row:not(.loading):not(.playing):not(.paused):not(.err) {
+  background: rgba(0,0,0,.06);
+}
+[data-theme="light"] #tts-sel-icon-btn,
+[data-theme="light"] .tts-float-btn,
+[data-theme="light"] #scrollTopBtn,
+[data-theme="light"] #chatbotBtn {
+  box-shadow: none;
+}
+[data-theme="light"] .tts-select option { background: #fff; color: #2d2d2d; }
+
+/* ===== Vùng chạm >= ~44px trên thiết bị cảm ứng (giữ nguyên kích thước hiển thị, chỉ mở rộng vùng bấm vô hình) =====
+   Các nút này dùng "all: unset" nên phải đặt lại position ở đây. */
+@media (pointer: coarse) {
+  .tts-tbtn, .tts-vol-icon, .tts-bgm-btn { position: relative; }
+  .tts-tbtn::after, .tts-vol-icon::after, .tts-bgm-btn::after { content: ''; position: absolute; top:-8px;right:-8px;bottom:-8px;left:-8px;inset: -8px; }
+  /* Nút tốc độ: cao ~30px -> ~36px bằng cách nâng padding (không dùng ::after vì các nút nằm sát nhau) */
+  .tts-spd { padding: 11px 0; }
+}
+
+/* ===== Chữ phụ trên điện thoại: nâng cỡ < 12px lên 12px+ cho dễ đọc ===== */
+@media (max-width: 680px) {
+  .tts-select-note, .tts-dd-note { font-size: 12px; }
+  .tts-speed-wrap .tts-spd { font-size: 12.5px; }
+}
+
+/* Mở khung Cài đặt (body.settings-open, xem index.html #sdr): ẨN audio bar, đóng khung thì hiện lại — giống nút chatbot
+   (body.settings-open #chatbotBtn{display:none}). Chỉ ẩn hiển thị — âm thanh vẫn đọc bình thường. */
+body.settings-open #tts-root { display: none !important; }
+
+/* ---- menu giọng đọc: cờ ngôn ngữ (cùng bộ cờ với ô "Dịch sang"), giới tính bên phải, tiêu đề phần "giọng đọc khác" ---- */
+.tts-flag { display: inline-block; vertical-align: -2px; width: 20px; height: 14px; margin-right: 10px; border-radius: 3px; flex: none;
+  background: center/cover no-repeat; box-shadow: 0 0 0 1px rgba(128,128,128,.35); }
+.tts-flag.txt { display: inline-flex; align-items: center; justify-content: center; vertical-align: -3px; font-size: 8px; font-weight: 700; letter-spacing: .2px;
+  line-height: 1; background-color: rgba(128,128,128,.22); color: inherit; box-shadow: none; }
+.tts-dd-item-meta { flex-shrink: 0; font-size: 11.5px; color: var(--tts-txt3); }
+.tts-dd-item.active .tts-dd-item-meta { color: var(--tts-ac2); }
+.tts-dd-divider { display: none; }
+.tts-dd-heading { padding: 10px 10px 4px; font-size: 11.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--tts-txt3); flex-shrink: 0; }
+
+/* ── Mượt khi mở/đóng thanh (tts.js thêm body.tts-fx-run ~480ms quanh lúc trượt) ──
+   Lúc thanh đang trượt: bỏ backdrop-filter (tốn GPU, nhất là lần đầu) và dùng nền đặc hơn (--tts-bg3, 94%) để mắt không thấy
+   thiếu blur. Hết trượt, class bị gỡ → blur bật lại và nền mờ dần về --tts-bg2 nhờ transition bên dưới (không bị "nhảy"). */
+.tts-bar { transition: background-color .25s ease; }
+html:not([data-fx="balanced"]):not([data-fx="lite"]) body.tts-fx-run .tts-bar,
+html:not([data-fx="balanced"]):not([data-fx="lite"]) body.tts-fx-run .tts-detached-row {
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: var(--tts-bg3);
+}
+
+/* ══ CHẾ ĐỘ KÍNH (blur) TOÀN APP — html[data-fx]: 'full' | 'balanced' (mặc định) | 'lite' ══
+   Đặt bằng script đầu <head> (localStorage 'dich-fx'; Console: setFxMode('lite')). Blur tốn GPU, nhất là máy yếu/trang có DOM lớn;
+   bỏ blur mà GIỮ nền trong suốt thì chữ phía sau lộ rõ → xấu. Vì vậy mỗi mức vừa giảm blur vừa TĂNG ĐỘ ĐẶC của nền.
+   Dùng đặc hiệu html[data-fx] (0,1,1) để thắng :root / [data-theme] mà không cần phụ thuộc thứ tự nạp file.
+   - full     : như trước (blur 16–18px, nền 66–82%).
+   - balanced : blur 6px + nền ~88–90% → vẫn có cảm giác kính, chi phí GPU thấp hơn nhiều.
+   - lite     : không blur, nền ~96% (gần đặc) → nhẹ nhất, nhìn "phẳng" nhưng không bị trong suốt xấu. */
+html[data-fx="balanced"] {
+  --glass-blur: blur(6px);
+  --pnl-blur: blur(6px);
+  --glass-bg: color-mix(in srgb, var(--bg2) 90%, transparent);
+  --pnl-glass: color-mix(in srgb, var(--bg2) 88%, transparent);
+  --tts-bg2: color-mix(in srgb, var(--bg) 90%, transparent);
+}
+@supports not (background:color-mix(in srgb,red,blue)){
+
+  html[data-fx="balanced"]{
+    --glass-bg:var(--bg2);
+    --pnl-glass:var(--bg2);
+    --tts-bg2:var(--bg);
+  }
+}
+html[data-fx="balanced"] .tts-bar, html[data-fx="balanced"] .tts-detached-row, html[data-fx="balanced"] .tts-dd-menu, html[data-fx="balanced"] .support-sticker-panel {
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+html[data-fx="balanced"] :is(.tts-bar, .tts-detached-row, .tts-dd-menu, .support-sticker-panel) {
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+html[data-fx="balanced"] .tts-float-btn { -webkit-backdrop-filter: none; backdrop-filter: none; } /* nền nút là màu accent đặc → blur vô nghĩa */
+
+html[data-fx="lite"] {
+  --glass-blur: none;
+  --pnl-blur: none;
+  --glass-bg: color-mix(in srgb, var(--bg2) 96%, transparent);
+  --pnl-glass: color-mix(in srgb, var(--bg2) 96%, transparent);
+  --tts-bg2: color-mix(in srgb, var(--bg) 96%, transparent);
+  --tts-bg3: color-mix(in srgb, var(--bg) 98%, transparent);
+}
+
+@supports not (background:color-mix(in srgb,red,blue)){
+
+  html[data-fx="lite"]{
+    --glass-bg:var(--bg2);
+    --pnl-glass:var(--bg2);
+    --tts-bg2:var(--bg);
+    --tts-bg3:var(--bg);
+  }
+}
+html[data-fx="lite"] *, html[data-fx="lite"] *::before, html[data-fx="lite"] *::after {
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}

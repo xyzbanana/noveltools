@@ -1,0 +1,362 @@
+/* ===== CHARACTER MEMORY - CSS */
+/* CHARACTER MEMORY DRAWER — thẻ kính nổi (cùng kiểu Tủ truyện/Mục lục), bám demo character-memory-demo-v5.
+   z-index 810/820: cao hơn thanh audio TTS (#tts-root = 800) nên panel + lớp phủ đè lên audio bar; vẫn thấp hơn .spanel (900) và các popup/modal (905+).
+   position:absolute (không phải fixed): neo theo .layout (index.html đã đặt position:relative cho .layout) — luôn bắt đầu ngay dưới
+   header THẬT SỰ đang hiển thị, kể cả khi header ẩn lúc cuộn, không cần đoán cứng số px.
+   Nền kính vẽ trên ::before (KHÔNG đặt backdrop-filter trực tiếp lên drawer). Lớp phủ có màn đen mờ: bấm ra ngoài để đóng. */
+.charmem-overlay{position:absolute;top:0;right:0;bottom:0;left:0;z-index:810;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s ease;will-change:opacity;}
+/* z-index:810: CAO hơn thanh audio #tts-root (800) để màn đen phủ cả audio bar, vẫn THẤP hơn drawer (820) nên panel nổi trên màn đen. */
+.charmem-overlay.show{pointer-events:all;opacity:1;} /* màn đen phía sau panel (mobile đậm hơn: .45 ở @media bên dưới) */
+.charmem-drawer{
+  --cm-warn:#b7791f;
+  --cm-fld:color-mix(in srgb,var(--text) 6%,var(--bg2));
+  position:absolute;top:6px;right:10px;bottom:10px;width:420px;max-width:calc(100% - 20px);z-index:820;
+  display:flex;flex-direction:column;overflow:hidden;isolation:isolate;border-radius:18px;
+  box-shadow:var(--pnl-shadow),0 0 0 1px var(--pnl-ring);
+  transform:translateX(calc(100% + 24px));transition:transform .32s cubic-bezier(.22,1,.36,1);
+}
+@supports not (background:color-mix(in srgb,red,blue)){
+.charmem-drawer{--cm-fld:var(--bg2);}}
+[data-theme="dark"] .charmem-drawer{--cm-warn:#e3b341;--cm-fld:color-mix(in srgb,#fff 8%,var(--bg2));}
+@supports not (background:color-mix(in srgb,red,blue)){
+[data-theme="dark"] .charmem-drawer{--cm-fld:var(--bg2);}}
+.charmem-drawer::before{content:'';position:absolute;top:0;right:0;bottom:0;left:0;z-index:-1;border-radius:inherit;pointer-events:none;background:var(--bg2);background:var(--pnl-glass);-webkit-backdrop-filter:var(--pnl-blur);backdrop-filter:var(--pnl-blur);}
+.charmem-drawer.open{transform:none;}
+
+/* BỀ RỘNG: máy tính + tablet (>680px) = 420px (khai báo ở .charmem-drawer ở trên); điện thoại (<=680px) GIỮ NGUYÊN kích thước cũ bên dưới.
+   MOBILE (<=680px): cùng kích thước/vị trí với drawer Tủ truyện (.left-area trong index.html: left:8px;top:6px;bottom:8px;
+   width:calc(100vw - 16px);max-width:340px) + lớp phủ tối phía sau giống .mobile-backdrop (rgba(0,0,0,.45)). Desktop giữ nguyên:
+   panel rộng 315px như .lib-panel, không phủ tối. */
+@media (max-width:680px){
+  .charmem-drawer{right:8px;bottom:8px;width:calc(100vw - 16px);max-width:340px;transform:translateX(calc(100% + 16px));}
+  .charmem-drawer.open{transform:none;}
+  .charmem-overlay{background:rgba(0,0,0,.45);}
+}
+
+/* header: tiêu đề + số nhân vật | nút Xưng hô | nút Cài đặt | nút Đóng (hai nút đầu style trong index.html: .cmaddr-btn/.cmset-btn) */
+.charmem-hdr{flex-shrink:0;display:flex;align-items:center;gap:4px;padding:12px 10px 6px 16px;}
+html.no-flex-gap .charmem-hdr>*+*{margin-left:4px;}
+.charmem-hdr-title{flex:1;min-width:0;font-size:15px;font-weight:700;letter-spacing:-.1px;color:var(--text);}
+.charmem-beta{font-size:11px;font-weight:600;letter-spacing:0;color:var(--text4);margin-left:5px;}
+.charmem-hdr-btns{display:flex;gap:2px;flex:none;}
+html.no-flex-gap .charmem-hdr-btns>*+*{margin-left:2px;}
+
+/* ô tìm kiếm: nền nhạt, không viền */
+.charmem-search-wrap{flex-shrink:0;display:flex;align-items:center;gap:4px;margin:4px 12px 8px;}
+html.no-flex-gap .charmem-search-wrap>*+*{margin-left:4px;}
+.charmem-search-row{
+  flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:12px;
+  background:var(--pnl-soft);color:var(--text4);transition:box-shadow .15s,color .15s;
+}
+html.no-flex-gap .charmem-search-row>*+*{margin-left:8px;}
+.charmem-search-row:focus-within{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 45%,transparent);color:var(--accent);}
+.charmem-search-row svg{flex:none;}
+.charmem-search-row input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-size:14px;padding:0;}
+.charmem-search-row input:focus,.charmem-search-row input:focus-visible{outline:0;}
+.charmem-search-row input::placeholder{color:var(--text4);}
+
+/* sắp xếp: nhóm nút phân đoạn (.on = đang chọn) */
+/* 2 nút sắp xếp (đồng hồ = mới nhất, A→Z) nằm bên phải ô tìm kiếm; kiểu nút = .lib-sort-btn của Tủ truyện (định nghĩa trong index.html) */
+.charmem-sort-btns{flex:none;display:flex;gap:3px;}
+html.no-flex-gap .charmem-sort-btns>*+*{margin-left:3px;}
+.charmem-sort-btns .lib-sort-btn{display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;}
+.charmem-sort-btns .lib-sort-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+
+.charmem-offnote{display:none;flex-shrink:0;margin:0 16px 6px;font-size:12.5px;line-height:1.45;color:var(--cm-warn);}
+.charmem-offnote.show{display:block;}
+
+/* danh sách: chia nhóm Nhân vật chính / Cần xem lại / Nhân vật khác; thanh cuộn tự vẽ (charMemScroll gắn .cm-cs) */
+.charmem-list{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-x:none;padding:0 12px 14px;}
+.charmem-grp{display:flex;align-items:center;gap:8px;margin:14px 2px 8px;font-size:12.5px;font-weight:650;color:var(--text3);}
+html.no-flex-gap .charmem-grp>*+*{margin-left:8px;}
+.charmem-grp:first-child{margin-top:6px;}
+.charmem-grp i{font-style:normal;font-weight:600;color:var(--text4);}
+.charmem-grp::after{content:'';flex:1;height:1px;background:var(--pnl-ring);}
+.charmem-empty{color:var(--text4);font-size:13.5px;text-align:center;padding:40px 16px;line-height:1.6;}
+
+/* thẻ nhân vật: bấm cả thẻ = mở modal sửa; .review = viền vàng (cần xem lại); .act = đang mở trong modal */
+.char-item{
+  --cover-w:79px;
+  position:relative;display:grid;grid-template-columns:var(--cover-w) minmax(0,1fr);align-items:stretch;
+  min-height:calc(var(--cover-w)*4/3);margin-bottom:8px;border-radius:16px;overflow:hidden;cursor:pointer;
+  background:var(--pnl-soft);
+  box-shadow:0 0 0 1px var(--border);box-shadow:0 0 0 1px var(--pnl-ring),0 1px 2px rgba(20,22,30,.06);
+  transition:background .15s,box-shadow .15s;
+}
+/* ảnh bìa: dải sát mép trái, TỰ GIÃN đủ chiều cao thẻ (ghi chú/quan hệ dài làm thẻ cao hơn cũng không bị hở dưới ảnh).
+   Chưa có ảnh -> màu theo id + chữ cái đầu (.ph). Ảnh lưu tỉ lệ 3:4 (384×512), object-fit:cover. */
+.char-item-cover{position:relative;align-self:stretch;overflow:hidden;background:var(--pnl-hover);}
+.char-item-cover::after{content:'';position:absolute;top:0;right:0;bottom:0;left:0;inset:0;box-shadow:inset -1px 0 0 var(--pnl-ring);pointer-events:none;}
+/* Ảnh phủ kín ô bìa: khớp trọn chiều cao thẻ, chiều rộng thừa bị cắt đều hai bên. Không còn lớp nền nhoè, không còn mask/gradient ở chân ảnh. */
+.char-item-cover img.fg{position:absolute;top:0;right:0;bottom:0;left:0;inset:0;display:block;width:100%;height:100%;max-width:none;object-fit:cover;object-position:center;}
+.char-item-cover .ph{position:absolute;top:0;right:0;bottom:0;left:0;inset:0;display:grid;place-items:center;color:#fff;font-weight:700;font-size:26px;user-select:none;}
+/* nút đổi ảnh ngẫu nhiên: góc dưới phải ảnh bìa; máy có chuột chỉ hiện khi rê vào ảnh (cảm ứng luôn hiện vì không có hover) */
+.char-cover-shuffle{position:absolute;z-index:2;left:calc(var(--cover-w) - 34px);bottom:6px;width:28px;height:28px;margin:0;padding:0;border:0;border-radius:9px;background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;cursor:pointer;transition:background .15s,opacity .15s,transform .1s;}
+.char-cover-shuffle:hover{background:rgba(90,90,90,.55);}
+.char-cover-shuffle:active{transform:scale(.92);}
+.char-cover-shuffle:focus-visible{outline:2px solid #fff;outline-offset:-3px;}
+.char-cover-shuffle.busy{pointer-events:none;background:rgba(90,90,90,.55);}
+.char-cover-shuffle.busy svg{animation:charCoverShuffleSpin .8s linear infinite;}
+@keyframes charCoverShuffleSpin{to{transform:rotate(360deg);}}
+@media (hover:hover){
+  .char-cover-shuffle{opacity:0;pointer-events:none;}
+  .char-item-cover:hover+.char-cover-shuffle,.char-cover-shuffle:hover,.char-cover-shuffle:focus-visible,.char-cover-shuffle.busy{opacity:1;pointer-events:auto;}
+}
+@media (prefers-reduced-motion:reduce){.char-cover-shuffle.busy svg{animation:none;}}
+.char-item-body{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:5px;padding:11px 12px 11px 13px;}
+html.no-flex-gap .char-item-body>*+*{margin-top:5px;}
+@media (hover:hover){
+  .char-item:hover{background:var(--pnl-hover);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 55%,transparent),0 0 0 2px color-mix(in srgb,var(--accent) 12%,transparent),0 8px 22px color-mix(in srgb,var(--accent) 10%,transparent);}
+}
+/* nhân vật chính: highlight giống khối .et-scope-block.selected của popup Sửa văn bản
+   (viền nhấn 55% + vòng mờ 12% + bóng toả nhẹ) — .review / .act ở dưới vẫn ghi đè khi cần */
+/* index.html có .main{display:flex;flex-direction:column;overflow:hidden} (khung nội dung chính) trùng tên class -> ghi đè lại để thẻ nhân vật chính vẫn là lưới 2 cột */
+.char-item.main{display:grid;flex-direction:row;flex:none;box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 55%,transparent),0 0 0 2px color-mix(in srgb,var(--accent) 12%,transparent),0 8px 22px color-mix(in srgb,var(--accent) 10%,transparent);}
+@media (hover:hover){
+  .char-item.main:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 70%,transparent),0 0 0 2px color-mix(in srgb,var(--accent) 16%,transparent),0 8px 22px color-mix(in srgb,var(--accent) 14%,transparent);}
+}
+.char-item.review,.char-item.review:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--cm-warn) 55%,transparent),0 1px 2px rgba(20,22,30,.06);}
+.char-item.act,.char-item.act:hover{background:var(--pnl-tint);box-shadow:0 0 0 1.5px var(--accent);}
+.char-item-top{display:flex;align-items:flex-start;gap:4px;min-width:0;padding-right:26px;}
+html.no-flex-gap .char-item-top>*+*{margin-left:4px;}   /* chỉ dòng tên chừa chỗ cho nút xoá */
+.char-item-name{flex:1;min-width:0;display:flex;align-items:flex-start;gap:4px;font-size:15px;font-weight:650;line-height:1.3;color:var(--text);}
+html.no-flex-gap .char-item-name>*+*{margin-left:4px;}
+.char-item-name .nm{min-width:0;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;}   /* tên tối đa 2 dòng thay vì cắt 1 dòng */
+.char-item.act .char-item-name .nm{color:var(--accent-on-tint,var(--accent));}
+.char-protagonist-star{display:grid;place-items:center;width:24px;height:24px;margin:-2px 0 0;padding:0;border:0;border-radius:8px;background:transparent;color:var(--text4);cursor:pointer;flex:none;transition:background .15s,color .15s;}
+.char-protagonist-star:hover{background:var(--pnl-hover);color:var(--text2);}
+.char-protagonist-star.on{color:var(--accent);}
+.char-item-actions{position:absolute;top:6px;right:6px;z-index:1;display:flex;align-items:center;gap:2px;opacity:0;transition:opacity .15s;}
+html.no-flex-gap .char-item-actions>*+*{margin-left:2px;}
+.char-item:hover .char-item-actions,.char-item:focus-within .char-item-actions{opacity:1;}
+@media (hover:none){.char-item-actions{opacity:1;}}
+.char-act-btn{width:28px;height:28px;margin:0;padding:0;border:0;border-radius:9px;background:transparent;color:var(--text3);cursor:pointer;display:grid;place-items:center;transition:background .15s,color .15s;}
+.char-act-btn:hover{background:var(--pnl-hover);color:var(--text);}
+.char-act-btn.delete:hover{color:var(--danger);}
+.char-protagonist-star:focus-visible,.char-act-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+
+/* nhãn trạng thái: .w vàng = AI gợi ý sửa dữ liệu (xung đột giới tính/quan hệ) · .b đỏ = tên còn sót chữ Hán chưa dịch
+   (xem needsTranslation trong buildCharExtractPrompt) · xám = tên tạm do AI đặt · .a tím = có thể trùng người khác (sameAs) */
+.char-item-tags{display:flex;flex-wrap:wrap;gap:4px;}
+.char-tag{flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:7px;font-size:11px;font-weight:600;line-height:1;white-space:nowrap;background:var(--pnl-soft);color:var(--text3);}
+.char-tag.more{flex:none;padding-left:7px;padding-right:7px;}
+/* thẻ nằm trên nền pnl-soft của .char-item nên đổi sang nền đậm hơn một chút để vẫn nhìn rõ */
+.char-item .char-tag:not(.w):not(.b):not(.a){background:rgba(128,128,128,0.09);background:color-mix(in srgb,var(--text) 9%,transparent);}
+.char-tag.w{background:var(--cm-warn);background:color-mix(in srgb,var(--cm-warn) 16%,transparent);color:var(--cm-warn);}
+.char-tag.b{background:var(--danger);background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger);}
+.char-tag.a{background:var(--pnl-tint);color:var(--accent-on-tint,var(--accent));}
+/* dòng giới tính • quan hệ • tuổi: mỗi mục là 1 cụm không bị bẻ giữa chừng, xuống dòng khi hết chỗ (không còn cắt "…").
+   Dấu chấm phân cách nằm bên trái từng mục; .char-item-meta cắt phần lề âm nên chấm ở ĐẦU dòng tự ẩn (không có chấm mồ côi). */
+.char-item-meta{overflow:hidden;font-size:12.5px;line-height:1.45;font-weight:500;color:var(--text2);}
+.char-item-meta-in{display:flex;flex-wrap:wrap;margin-left:-15px;}
+.char-item-meta .m{position:relative;max-width:100%;padding-left:15px;overflow-wrap:anywhere;}
+.char-item-meta .m::before{content:'';position:absolute;left:6px;top:.62em;width:3px;height:3px;border-radius:50%;background:var(--text4);}
+.char-item-note{font-size:12.5px;line-height:1.5;color:var(--text3);display:-webkit-box;-webkit-line-clamp:3;line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+
+/* CHARACTER EDIT MODAL — thiết kế lại: nền kính, 4 mục (Thông tin cơ bản / Xưng hô / Ghi chú / Gộp nhân vật),
+   header + nút cố định, thanh cuộn tự vẽ (.cm-sb, xem charMemScroll trong character-memory.js).
+   Thứ tự trường theo markup #charModalOverlay trong index.html. */
+/* z-index:905 (thấp hơn #popupOverlay/#apiGuideOverlay ở 910) — để popup xác nhận
+   "Gộp nhân vật?" (showPopup, mở TỪ BÊN TRONG modal này) luôn nổi lên trên, không bị
+   modal thông tin nhân vật che mất. Vẫn cao hơn .spanel (900) nên không bị Settings che. */
+.charmodal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:905;background:transparent;opacity:0;pointer-events:none;transition:opacity .2s ease;display:flex;align-items:center;justify-content:center;}
+.charmodal-overlay.show{opacity:1;pointer-events:all;}
+/* --cm-fld: nền ô nhập ĐẶC (không trong suốt) để mọi ô — input, textarea, ô chọn, chip — luôn cùng 1 màu. */
+.charmodal-box{
+  --cm-fld:var(--input-bg);
+  position:relative;isolation:isolate;width:540px;max-width:92vw;max-height:90vh;max-height:90dvh;
+  display:flex;flex-direction:column;overflow:hidden;border-radius:18px;background:var(--bg3);
+  border:1px solid var(--border);
+  box-shadow:var(--pnl-shadow);
+  transform:translateY(8px);transition:transform .2s ease;
+}
+[data-theme="dark"] .charmodal-box{--cm-fld:var(--input-bg);}
+/* nền kính vẽ trên ::before (không đặt backdrop-filter trực tiếp lên box) — cùng kiểu panel Tủ truyện */
+.charmodal-box::before{content:'';position:absolute;top:0;right:0;bottom:0;left:0;z-index:-1;border-radius:inherit;pointer-events:none;background:var(--bg3);}
+.charmodal-overlay.show .charmodal-box{transform:translateY(0);}
+.charmodal-hdr{flex:none;display:flex;align-items:center;gap:8px;padding:16px 14px 12px 22px;border-bottom:1px solid var(--border);}
+html.no-flex-gap .charmodal-hdr>*+*{margin-left:8px;}
+.charmodal-title{flex:1;font-size:17px;font-weight:700;letter-spacing:-.2px;color:var(--text);margin:0;}
+.charmodal-x{width:32px;height:32px;border:0;border-radius:10px;background:transparent;color:var(--text3);cursor:pointer;display:grid;place-items:center;flex:none;transition:background .15s,color .15s;}
+.charmodal-x:hover{background:var(--pnl-hover);color:var(--text);}
+/* đường kẻ mờ dưới header khi nội dung đã cuộn khỏi đầu */
+/* .charmodal-inner = VÙNG CUỘN DUY NHẤT; nút Hủy/Lưu (.charmodal-btns) là anh em SAU nó nên luôn cố định ở đáy */
+.charmodal-inner{padding:16px 22px 14px;overflow-y:auto;flex:1;min-height:0;}
+
+/* ----- thanh cuộn tự vẽ (thay scrollbar hệ thống) ----- */
+.cm-cs{scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior:contain;}
+.cm-cs::-webkit-scrollbar{display:none;}
+.cm-sb{position:absolute;z-index:6;width:10px;opacity:0;pointer-events:none;transition:opacity .25s;}
+.cm-sb.show{opacity:1;pointer-events:auto;}
+.cm-sb.na{display:none;}
+.cm-sbt{width:5px;margin:0 1px 0 auto;border-radius:8px;background:var(--border2);touch-action:none;cursor:default;transition:width .15s;}
+.cm-sb:hover .cm-sbt{width:8px;}
+.cm-sb.drag .cm-sbt{width:8px;}
+
+/* ----- 4 mục ----- */
+.charmodal-sec{padding:14px;border-radius:14px;margin-bottom:12px;background:var(--bg2);border:1px solid var(--border);}
+.charmodal-sec:last-child{margin-bottom:0;}
+.charmodal-sec-h{font-size:13.5px;font-weight:650;margin:0 0 12px;color:var(--text);}
+.charmodal-sec>.charmodal-fg:last-child,.charmodal-sec>.charmodal-row2:last-child{margin-bottom:0;}
+
+/* ----- trường nhập ----- */
+.charmodal-fg{margin-bottom:14px;display:flex;flex-direction:column;gap:6px;width:100%;box-sizing:border-box;}
+html.no-flex-gap .charmodal-fg>*+*{margin-top:6px;}
+.charmodal-fg label{display:flex;align-items:center;font-size:13px;font-weight:600;color:var(--text2);text-transform:none;letter-spacing:0;}
+.charmodal-fg input,.charmodal-fg textarea{
+  width:100%;box-sizing:border-box;height:40px;padding:0 12px;border:1px solid var(--border);border-radius:12px;
+  background:var(--cm-fld);color:var(--text);font-size:14px;font-family:inherit;outline:none;
+  -webkit-appearance:none;appearance:none;transition:border-color .15s;
+}
+.charmodal-fg input::placeholder,.charmodal-fg textarea::placeholder{color:var(--text4);}
+.charmodal-fg textarea{
+  height:auto;min-height:76px;max-height:200px;padding:10px 22px 10px 12px;line-height:1.5;resize:none;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--border2) transparent;
+}
+.charmodal-ta-wrap{position:relative;width:100%;box-sizing:border-box;}
+.charmodal-fg input:focus,.charmodal-fg textarea:focus{border-color:var(--accent);}
+.charmodal-sec #charLinkedNames{margin:-6px 0 14px!important;}   /* dòng "Cùng là người với…" do JS chèn, đè margin inline */
+
+.charmodal-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.charmodal-row2>.charmodal-fg{margin-bottom:0;min-width:0;}
+.charmodal-row2-namegender{grid-template-columns:1.3fr 1fr;}
+.charmodal-row2-eq{grid-template-columns:1fr 1fr;}
+
+/* Giới tính + chiều gộp: nhóm nút phân đoạn (chip .active = đang chọn) */
+.charmodal-gender-row{display:flex;gap:2px;padding:3px;border-radius:12px;background:var(--cm-fld);border:1px solid var(--border);}
+html.no-flex-gap .charmodal-gender-row>*+*{margin-left:2px;}
+.charmodal-chip{flex:1;height:34px;padding:0 6px;border:0;border-radius:9px;background:transparent;color:var(--text3);font-size:13.5px;font-weight:600;cursor:pointer;transition:background .15s,color .15s;white-space:nowrap;}
+.charmodal-chip:not(.active):hover{background:var(--pnl-hover);color:var(--text);}
+.charmodal-chip.active{background:var(--accent);color:#fff;cursor:default;}
+
+/* ----- mục "Gộp nhân vật" (thu gọn) ----- */
+.charmodal-adv-toggle{display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:650;color:var(--text);cursor:pointer;user-select:none;}
+.charmodal-adv-title{display:inline-flex;align-items:center;}
+.charmodal-chev{flex-shrink:0;color:var(--text3);transition:transform .2s;}
+.charmodal-adv-toggle.open .charmodal-chev{transform:rotate(180deg);}
+.charmodal-adv-body{display:none;padding-top:14px;}
+.charmodal-adv-body.open{display:block;}
+.charmodal-merge-dir{margin-bottom:8px;}
+.charmodal-merge-row{display:flex;gap:8px;align-items:flex-start;}
+html.no-flex-gap .charmodal-merge-row>*+*{margin-left:8px;}
+.charmodal-merge-go{height:40px;flex:none;padding:0 16px;border:0;border-radius:10px;font-size:13px;font-weight:600;justify-content:center;}
+
+/* ----- ô chọn nhân vật tự vẽ (thay <select> hệ thống; select ẩn #charFieldMergeTarget vẫn là nguồn dữ liệu) ----- */
+.cm-dd{position:relative;flex:1;min-width:0;}
+.cm-dd-b{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:40px;padding:0 12px;border:1px solid var(--border);border-radius:12px;background:var(--cm-fld);color:var(--text);font:inherit;font-size:14px;text-align:left;cursor:pointer;transition:border-color .15s;}
+html.no-flex-gap .cm-dd-b>*+*{margin-left:8px;}
+.cm-dd-b span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cm-dd-b .ph{color:var(--text4);}
+.cm-dd-b svg{flex:none;color:var(--text3);transition:transform .2s;}
+.cm-dd-b:focus-visible,.cm-dd.open .cm-dd-b{outline:0;border-color:var(--accent);}
+.cm-dd.open .cm-dd-b svg{transform:rotate(180deg);}
+.cm-dd-l{display:none;margin-top:6px;max-height:190px;overflow-y:auto;padding:4px 12px 4px 4px;border-radius:12px;background:var(--bg3);border:1px solid var(--border);}
+.cm-dd.open .cm-dd-l{display:block;}
+.cm-dd-o{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:36px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:var(--text);font:inherit;font-size:13.5px;text-align:left;cursor:pointer;}
+html.no-flex-gap .cm-dd-o>*+*{margin-left:8px;}
+.cm-dd-o span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cm-dd-o svg{flex:none;visibility:hidden;}
+.cm-dd-o.on svg{visibility:visible;}
+.cm-dd-o:hover,.cm-dd-o:focus-visible{outline:0;background:var(--pnl-hover);}
+.cm-dd-o.on{background:var(--pnl-tint);color:var(--accent-on-tint,var(--accent));font-weight:600;}
+.cm-dd-e{padding:10px;font-size:13px;color:var(--text4);}
+
+/* ----- nút Hủy / Lưu: cố định đáy modal, canh phải, không bóng ----- */
+.charmodal-btns{flex:none;display:flex;gap:8px;justify-content:flex-end;padding:12px 22px 16px;border-top:1px solid var(--border);}
+html.no-flex-gap .charmodal-btns>*+*{margin-left:8px;}
+.charmodal-btns .btn{justify-content:center;height:38px;padding:0 18px;border:0;border-radius:10px;background:var(--pnl-soft);color:var(--text2);font-size:14px;font-weight:600;box-shadow:none;}
+.charmodal-btns .btn-p{background:var(--accent);color:#fff;}
+@media (max-width:560px){
+  .charmodal-hdr{padding-left:18px;}
+  .charmodal-inner{padding-left:18px;padding-right:18px;}
+  .charmodal-btns{padding-left:18px;padding-right:18px;}
+  .charmodal-row2-eq{grid-template-columns:1fr;}
+}
+
+/* CONFLICT BANNER — gợi ý sửa gender/relationship khi AI phát hiện mâu thuẫn với dữ liệu do user xác nhận */
+.charmem-conflict-banner{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+html.no-flex-gap .charmem-conflict-banner>*+*{margin-top:8px;}
+.charmem-conflict-item{
+  border:1px solid #e0a020;background:rgba(224,160,32,.1);border-radius:var(--r-md);padding:10px 12px;
+  display:flex;flex-direction:column;gap:8px;
+}
+html.no-flex-gap .charmem-conflict-item>*+*{margin-top:8px;}
+.charmem-conflict-text{font-size:12.5px;line-height:1.5;color:var(--text);}
+.charmem-conflict-reason{color:var(--text3);}
+.charmem-conflict-btns{display:flex;gap:8px;}
+html.no-flex-gap .charmem-conflict-btns>*+*{margin-left:8px;}
+.charmem-conflict-btns .btn{padding:6px 12px;font-size:12.5px;border-radius:7px;}
+
+/* POPUP "XƯNG HÔ THƯỜNG GẶP" — chip đang được tự nhận diện (chưa chọn tay) viền nét đứt; thông báo lỗi ở ô thêm cặp */
+.charmem-addr-chip.detected{border-style:dashed;border-color:var(--accent);color:var(--accent);}
+.charmem-addr-chip.mode.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+.charmem-addr-hint.err{color:#d8524a;}
+.charmem-addr-hint.ok{color:var(--accent);}
+.charmem-addr-empty{color:var(--text4);font-size:12.5px;padding:6px 2px;}
+
+.charmem-addr-hint:empty{display:none;}
+
+/* ===== Vùng chạm >= ~44px trên thiết bị cảm ứng (giữ nguyên kích thước hiển thị, chỉ mở rộng vùng bấm vô hình) ===== */
+@media (pointer:coarse){
+  .char-act-btn,.char-protagonist-star{position:relative;}
+  .char-act-btn::after,.char-protagonist-star::after{content:'';position:absolute;inset:-6px;}
+}
+
+/* ===== Chữ phụ trên điện thoại: nâng cỡ < 12px lên 12px+ cho dễ đọc ===== */
+@media (max-width:680px){
+  .char-tag{font-size:12px;}
+}
+@media (prefers-reduced-motion:reduce){
+  .charmem-drawer,.charmem-drawer *{transition:none!important;}
+}
+
+/* ẢNH NHÂN VẬT trong modal sửa: khung 3:4 bên trái, tên + giới tính bên phải (bấm khung / kéo thả / dán ảnh / dán link) */
+.charmodal-who{display:grid;grid-template-columns:112px minmax(0,1fr);gap:16px;align-items:start;margin-bottom:14px;}
+.charmodal-who-fields .charmodal-fg:last-child{margin-bottom:0;}
+/* THẺ ẢNH NHÂN VẬT: ảnh 3:4 + thanh công cụ liền khối bên dưới, dùng chung 1 khung bo góc + viền mảnh + bóng nhẹ. */
+.charmodal-ph-col{display:flex;flex-direction:column;align-items:stretch;gap:8px;width:112px;}
+html.no-flex-gap .charmodal-ph-col>*+*{margin-top:8px;}
+.charmodal-ph-frame{position:relative;display:block;width:100%;aspect-ratio:3/4;padding:0;border:0;border-radius:12px;overflow:hidden;background:var(--pnl-soft);box-shadow:0 0 0 1px var(--pnl-ring);cursor:pointer;transition:box-shadow .15s;}
+.charmodal-ph-frame:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 45%,var(--border));}
+.charmodal-ph-frame img{position:absolute;top:0;right:0;bottom:0;left:0;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block;}
+.charmodal-ph-frame .ph{position:absolute;top:0;right:0;bottom:0;left:0;inset:0;display:grid;place-items:center;color:#fff;font-weight:700;font-size:44px;}
+.charmodal-ph-frame.drag{outline:2px dashed var(--accent);outline-offset:-4px;}
+.charmodal-ph-frame:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+.charmodal-ph-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+/* thanh công cụ: 3 ô bằng nhau (đổi ngẫu nhiên · tải lên · link), ngăn bằng đường kẻ mảnh, không viền riêng từng nút */
+.charmodal-ph-tools{display:flex;justify-content:center;gap:4px;}
+html.no-flex-gap .charmodal-ph-tools>*+*{margin-left:4px;}
+/* 3 nút dưới ảnh (đổi ngẫu nhiên / tải lên / link) — cùng kiểu .cov-switch của popup "Đổi ảnh bìa" ở Tủ truyện: viền --border2, nền --btn-bg, hover = accent, icon đổi ngẫu nhiên xoay 180° mỗi lần bấm. */
+.charmodal-ph-btn{flex:0 1 32px;min-width:0;height:32px;margin:0;padding:0;border:0;border-radius:10px;background:var(--pnl-soft);color:var(--text2);display:grid;place-items:center;cursor:pointer;transition:background .15s,color .15s,transform .1s;}
+.charmodal-ph-btn:active{transform:scale(.94);}
+.charmodal-ph-btn svg{width:16px;height:16px;transition:transform .35s;}
+.charmodal-ph-btn.spin svg{transform:rotate(180deg);}
+.charmodal-ph-wrap{position:relative;width:100%;}
+/* nút xoá ảnh: chấm × nhỏ ở góc trên phải khung ảnh, chỉ hiện khi nhân vật đã có ảnh */
+.charmodal-ph-rm{position:absolute;top:6px;right:6px;z-index:2;width:24px;height:24px;margin:0;padding:0;border:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:background .15s;}
+.charmodal-ph-rm:hover{background:var(--danger);}
+.charmodal-ph-rm:focus-visible{outline:2px solid #fff;outline-offset:-3px;}
+.charmodal-ph-rm[hidden]{display:none;}
+/* Máy tính (có chuột): nút xoá chỉ hiện khi rê chuột vào khung ảnh (hoặc focus bàn phím). Cảm ứng giữ luôn hiện vì không có hover. */
+@media (hover:hover){
+  .charmodal-ph-rm{opacity:0;pointer-events:none;transition:background .15s,opacity .15s;}
+  .charmodal-ph-wrap:hover .charmodal-ph-rm,.charmodal-ph-rm:focus-visible{opacity:1;pointer-events:auto;}
+}
+@media (hover:hover){.charmodal-ph-btn:hover{background:var(--pnl-hover);color:var(--text);}}
+.charmodal-ph-hint{margin:-4px 0 14px;font-size:12px;line-height:1.5;color:var(--text3);}
+.charmodal-ph-hint:empty{display:none;}
+.charmodal-ph-hint.err{color:var(--danger);}
+.charmodal-url-row{display:none;gap:8px;margin:-2px 0 14px;}
+.charmodal-url-row.open{display:flex;}
+.charmodal-url-row input{flex:1;min-width:0;height:40px;padding:0 12px;border:1px solid var(--border);border-radius:12px;background:var(--cm-fld);color:var(--text);font:inherit;font-size:14px;outline:none;}
+.charmodal-url-row input:focus{border-color:var(--accent);}
+/* nút "Dùng ảnh": cùng kiểu nút Hủy/Lưu của modal (bo 10px, không viền, chữ 14px đậm vừa) — trước đây dính rule .btn chung (bo 8px, viền 1px, chữ 15.2px) nên lệch. Cao 40px để ngang ô nhập. */
+.charmodal-url-row .btn{flex:none;justify-content:center;height:40px;padding:0 16px;border:0;border-radius:10px;background:var(--pnl-soft);color:var(--text2);font-size:14px;font-weight:600;letter-spacing:0;box-shadow:none;}
+.charmodal-url-row .btn-p{background:var(--accent);color:#fff;}
+.charmodal-url-row .btn-p:hover{filter:brightness(1.08);}
+.charmodal-url-row .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+@media (max-width:560px){
+  .char-item{--cover-w:75px;}
+  .charmodal-who{grid-template-columns:92px minmax(0,1fr);gap:12px;}
+  .charmodal-ph-col{width:92px;}
+}

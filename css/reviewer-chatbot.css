@@ -1,0 +1,248 @@
+/* =====================================================================
+ * reviewer-chatbot.css — Trợ lý AI cho NovelTools - Reviewer
+ * Bố cục lấy từ chatbot.css bên index (nút tròn góc dưới-phải, panel nổi, bottom sheet trên mobile),
+ * màu/dark mode theo web review (indigo, html.dark). Mọi class có tiền tố rvc- để không đụng CSS Tailwind gốc.
+ * ===================================================================== */
+#rvChatBtn, #rvChatPanel {
+  --rvc-bg: #ffffff; --rvc-line: #e2e8f0; --rvc-text: #0f172a; --rvc-mute: #64748b;
+  --rvc-bubble: #f1f5f9; --rvc-input: #f8fafc; --rvc-acc: #4f46e5; --rvc-acc-h: #4338ca; --rvc-hover: rgba(15, 23, 42, .06);
+}
+html.dark #rvChatBtn, html.dark #rvChatPanel,
+[data-theme="dark"] #rvChatBtn, [data-theme="dark"] #rvChatPanel {
+  --rvc-bg: #1e2128; --rvc-line: #2c3038; --rvc-text: #f1f5f9; --rvc-mute: #9ca3af;
+  --rvc-bubble: #272b33; --rvc-input: #16181d; --rvc-acc: #6366f1; --rvc-acc-h: #4f46e5; --rvc-hover: rgba(255, 255, 255, .08);
+}
+/* Bên trang review dùng class "dark" trên <html>; bên công cụ dịch (khi nhúng qua NT_REVIEWER_EMBED)
+   lại dùng thuộc tính html[data-theme="dark"] — thêm selector trên để panel đổi màu đúng theo cả 2 nơi. */
+
+/* An toàn khi cùng nạp với chatbot công cụ dịch (chatbot.js): panel/nút bên kia đang mở thì ẩn nút tròn
+   này đi, tránh chồng 2 nút — thực tế ở chế độ nhúng (NT_REVIEWER_EMBED) thì #rvChatBtn không tồn tại nên
+   dòng này không có tác dụng, chỉ phòng khi 2 script được nạp chung theo cách khác. */
+body.chatbot-open #rvChatBtn { display: none; }
+
+/* ---------- Nút mở ---------- */
+#rvChatBtn {
+  position: fixed; right: 28px; bottom: 35px; z-index: 90;
+  width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--rvc-acc); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px rgba(79, 70, 229, .35);
+  transition: transform .2s, background .15s, opacity .2s;
+}
+@media (hover: hover) { #rvChatBtn:hover { background: var(--rvc-acc-h); transform: translateY(-2px); } }
+#rvChatBtn:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 3px; }
+#rvChatBtn svg { width: 25px; height: 25px; display: block; }
+body.rvc-open #rvChatBtn { display: none; }
+
+/* ---------- Panel ---------- */
+#rvChatPanel {
+  position: fixed; right: 20px; bottom: 30px; z-index: 95;
+  width: 380px; max-width: 92vw; height: 560px; max-height: 76vh; max-height: 76dvh;
+  background: var(--rvc-bg); color: var(--rvc-text);
+  border: 1px solid var(--rvc-line); border-radius: 16px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .35);
+  display: none; flex-direction: column; overflow: hidden;
+  opacity: 0; transform: translateY(14px) scale(.97); transform-origin: bottom right;
+  transition: opacity .18s ease, transform .18s ease;
+  font-family: inherit;
+}
+#rvChatPanel.open { display: flex; opacity: 1; transform: none; animation: rvcUp .26s ease; }
+@keyframes rvcUp { from { opacity: 0; transform: translateY(36px) scale(.97); } to { opacity: 1; transform: none; } }
+#rvChatPanel *, #rvChatPanel *::before, #rvChatPanel *::after { box-sizing: border-box; }
+@media (min-width: 681px) {
+  body.rvc-expanded #rvChatPanel { top: 0; right: 0; bottom: 0; width: min(520px, 44vw); max-width: 92vw; height: auto; max-height: none; border-radius: 0; }
+}
+
+/* ---------- Thanh "Quay lại" (chỉ có khi nhúng vào công cụ dịch — window.NT_REVIEWER_EMBED, xem reviewer-chatbot.js) ---------- */
+.rvc-back-bar { flex-shrink: 0; border-bottom: 1px solid var(--rvc-line); }
+.rvc-back-btn {
+  display: flex; align-items: center; gap: 6px; width: 100%; padding: 9px 16px;
+  border: 0; background: transparent; color: var(--rvc-acc); font: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; transition: background .15s;
+}
+.rvc-back-btn:hover { background: var(--rvc-hover); }
+.rvc-back-btn svg { flex-shrink: 0; }
+.rvc-back-btn:focus-visible { outline: 2px solid var(--rvc-acc); outline-offset: -2px; }
+
+/* ---------- Header ---------- */
+.rvc-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 13px 12px 12px 16px; border-bottom: 1px solid var(--rvc-line); }
+.rvc-head-ic { width: 28px; height: 28px; flex-shrink: 0; }
+.rvc-head-ic svg { width: 100%; height: 100%; display: block; }
+.rvc-head-tx { flex: 1; min-width: 0; }
+.rvc-title { font-size: 14.5px; font-weight: 700; letter-spacing: -.2px; }
+.rvc-beta { font-size: 10.5px; font-style: italic; font-weight: 500; color: var(--rvc-mute); }
+.rvc-sub { margin-top: 1px; font-size: 11.5px; font-weight: 500; color: var(--rvc-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rvc-hbtn {
+  width: 30px; height: 30px; flex-shrink: 0; border: 0; border-radius: 50%; background: transparent;
+  color: var(--rvc-mute); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, color .15s;
+}
+.rvc-hbtn:hover { background: var(--rvc-hover); color: var(--rvc-text); }
+.rvc-hbtn:focus-visible, #rvcSend:focus-visible, .rvc-chip:focus-visible, .rvc-card:focus-visible { outline: 2px solid var(--rvc-acc); outline-offset: 2px; }
+
+/* ---------- Tin nhắn ---------- */
+.rvc-msgs { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 14px 6px; display: flex; flex-direction: column; gap: 10px; }
+.rvc-msgs::-webkit-scrollbar { width: 6px; }
+.rvc-msgs::-webkit-scrollbar-thumb { background: var(--rvc-line); border-radius: 8px; }
+.rvc-row { display: flex; flex-direction: column; }
+.rvc-row.user { align-items: flex-end; }
+.rvc-row.model { align-items: flex-start; }
+.rvc-bubble { max-width: 86%; padding: 9px 13px; border-radius: 14px; font-size: 13.5px; line-height: 1.55; word-break: break-word; }
+.rvc-bubble.user { background: var(--rvc-acc); color: #fff; border-bottom-right-radius: 4px; white-space: pre-wrap; }
+.rvc-bubble.model { background: var(--rvc-bubble); border: 1px solid var(--rvc-line); border-bottom-left-radius: 4px; }
+.rvc-bubble.err { border-color: rgba(229, 72, 77, .5); color: #e5484d; }
+.rvc-bubble strong { font-weight: 700; }
+.rvc-bubble.model { max-width: 92%; }
+
+/* ---------- Nút phụ dưới mỗi bubble: sao chép (mọi bubble) + gửi lại (chỉ bubble người dùng) ----------
+   Đặt NGOÀI .rvc-bubble (anh em của nó trong .rvc-row), không nằm chồng lên nền bubble nữa — xem
+   attachTools() trong reviewer-chatbot.js. .rvc-row đã là cột (flex-direction:column) với align-items lệch
+   theo role nên thanh nút tự canh đúng phía dưới bubble mà không cần class .rvc-bubble.user riêng. */
+.rvc-tools { display: flex; align-items: center; gap: 2px; margin-top: 4px; }
+.rvc-tool-btn {
+  width: 24px; height: 24px; flex-shrink: 0; padding: 0; border: 0; border-radius: 50%; background: transparent;
+  color: var(--rvc-mute); opacity: .8; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .15s, opacity .15s, color .15s;
+}
+.rvc-tool-btn:hover { opacity: 1; background: var(--rvc-hover); color: var(--rvc-text); }
+.rvc-tool-btn.copied { opacity: 1; color: #22c55e; }
+.rvc-tool-btn:focus-visible { outline: 2px solid var(--rvc-acc); outline-offset: 2px; }
+
+/* ---------- Đánh giá 👍/👎 dưới câu trả lời của bot ---------- */
+.rvc-fb { display: flex; align-items: center; gap: 2px; margin-left: 4px; }
+.rvc-fb-btn {
+  width: 24px; height: 24px; flex-shrink: 0; padding: 0; border: 0; border-radius: 50%; background: transparent;
+  color: var(--rvc-mute); opacity: .8; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s, opacity .15s;
+}
+.rvc-fb-btn:hover { opacity: 1; background: var(--rvc-hover); color: var(--rvc-text); }
+.rvc-fb-btn.active { opacity: 1; color: var(--rvc-acc); }
+.rvc-fb-note { margin-left: 3px; font-size: 11px; color: var(--rvc-mute); }
+.rvc-fb-btn:focus-visible { outline: 2px solid var(--rvc-acc); outline-offset: 2px; }
+
+/* ---------- Thẻ truyện trong câu trả lời ---------- */
+.rvc-cards { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; } /* khoảng trên = khoảng dưới thẻ */
+.rvc-bubble .rvc-cards:last-child { margin: 18px 0 8px; }
+.rvc-card {
+  display: flex; align-items: center; gap: 10px; padding: 7px; border-radius: 12px;
+  border: 1px solid var(--rvc-line); background: var(--rvc-bg); color: inherit; text-decoration: none; transition: border-color .15s, background .15s;
+}
+.rvc-card:hover { border-color: var(--rvc-acc); }
+.rvc-cov { flex: 0 0 auto; width: 40px; height: 56px; border-radius: 6px; object-fit: cover; background: var(--rvc-hover); }
+.rvc-ct { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.rvc-ct b { font-size: 13px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.rvc-ct small { font-size: 11.5px; color: var(--rvc-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rvc-go { margin-left: auto; flex: 0 0 auto; color: var(--rvc-mute); }
+.rvc-card:hover .rvc-go { color: var(--rvc-acc); }
+
+/* ---------- Câu hỏi gợi ý ---------- */
+.rvc-suggest { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; margin-top: 2px; }
+.rvc-chip {
+  max-width: 86%; padding: 8px 14px; border-radius: 14px; border-bottom-right-radius: 4px;
+  border: 1px solid var(--rvc-acc); background: transparent; color: var(--rvc-acc);
+  font: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.4; text-align: right; cursor: pointer; transition: background .15s, color .15s;
+}
+.rvc-chip:hover { background: var(--rvc-acc); color: #fff; }
+html.dark .rvc-chip, [data-theme="dark"] .rvc-chip { color: var(--rvc-text); }
+html.dark .rvc-chip:hover, [data-theme="dark"] .rvc-chip:hover { color: #fff; }
+
+/* ---------- Link dạng nút bấm ([label](url) từ model) ---------- */
+.rvc-act-btn {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; padding: 7px 14px;
+  border-radius: 0.6rem; background: var(--rvc-acc); color: #fff !important;
+  font-size: 12.5px; font-weight: 700; line-height: 1.3; text-decoration: none;
+  transition: background .15s, transform .15s;
+}
+.rvc-act-btn:hover { background: var(--rvc-acc-h); }
+.rvc-act-btn svg { flex-shrink: 0; transition: transform .15s; }
+.rvc-act-btn:hover svg { transform: translateX(2px); }
+
+/* ---------- Đang gõ ---------- */
+.rvc-typing { display: flex; align-items: center; gap: 4px; padding: 12px 14px !important; }
+.rvc-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--rvc-mute); animation: rvcDot 1.1s infinite ease-in-out; }
+.rvc-typing span:nth-child(2) { animation-delay: .15s; }
+.rvc-typing span:nth-child(3) { animation-delay: .3s; }
+@keyframes rvcDot { 0%, 60%, 100% { transform: none; opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+/* ---------- Ô nhập ---------- */
+.rvc-input-row { flex-shrink: 0; display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--rvc-line); background: var(--rvc-bg); }
+#rvcInput {
+  flex: 1; min-width: 0; height: 36px; min-height: 36px; max-height: 110px; resize: none; padding: 9px 12px;
+  border: 1px solid var(--rvc-line); border-radius: 12px; background: var(--rvc-input); color: var(--rvc-text);
+  font: inherit; font-size: 13.5px; line-height: 1.45; outline: none; transition: border-color .15s; scrollbar-width: none;
+}
+#rvcInput::-webkit-scrollbar { display: none; }
+#rvcInput:focus { border-color: var(--rvc-acc); }
+#rvcInput::placeholder { color: var(--rvc-mute); }
+#rvcSend {
+  width: 36px; height: 36px; flex-shrink: 0; border: 0; border-radius: 50%; background: var(--rvc-acc); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: background .15s, opacity .15s;
+}
+#rvcSend:hover { background: var(--rvc-acc-h); }
+#rvcSend:disabled { opacity: .5; cursor: default; }
+#rvcSend svg { position: relative; top: 1px; }
+
+/* ---------- Mobile: bottom sheet ---------- */
+@media (max-width: 680px) {
+  #rvChatBtn { right: 16px; bottom: 16px; }
+  #rvChatPanel {
+    left: 0; right: 0; bottom: 0; width: auto; max-width: none;
+    height: min(78vh, 640px); height: min(78dvh, 640px); max-height: 84vh; max-height: 84dvh;
+    border-radius: 16px 16px 0 0; border-left: 0; border-right: 0; border-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom); transform: translateY(100%); transform-origin: bottom center;
+  }
+  #rvChatPanel.open { transform: none; }
+  body.rvc-expanded #rvChatPanel { top: 0; height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh; border-radius: 0; }
+  #rvcInput { font-size: 16px; } /* tránh iOS tự phóng to khi chạm vào ô nhập */
+}
+@media (prefers-reduced-motion: reduce) { #rvChatPanel, #rvChatBtn { transition: none; animation: none !important; } .rvc-typing span { animation: none; } }
+
+/* ---------- Bộ lọc thể loại (nút phễu ở header + bảng phủ trong panel) ---------- */
+.rvc-hbtn.rvc-on { color: var(--rvc-acc); }
+.rvc-fp { position: absolute; inset: 0; z-index: 5; display: none; flex-direction: column; background: var(--rvc-bg); }
+.rvc-fp.open { display: flex; animation: rvcFp .18s ease; }
+@keyframes rvcFp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.rvc-fp-head { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 11px 16px; border-bottom: 1px solid var(--rvc-line); }
+.rvc-fp-t { display: flex; align-items: center; gap: 8px; color: var(--rvc-acc); }
+.rvc-fp-t b { font-size: 14.5px; font-weight: 700; color: var(--rvc-text); }
+.rvc-fp-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 14px 10px; scrollbar-width: thin; scrollbar-color: var(--rvc-line) transparent; }
+.rvc-fp-hint { margin: 0 0 8px; font-size: 12px; line-height: 1.5; color: var(--rvc-mute); }
+.rvc-fp-note { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: #b45309; }
+html.dark .rvc-fp-note, [data-theme="dark"] .rvc-fp-note { color: #fbbf24; }
+.rvc-fp-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.rvc-fp-search { position: relative; flex: 1 1 140px; min-width: 0; }
+.rvc-fp-search svg { position: absolute; left: 10px; top: 50%; width: 15px; height: 15px; transform: translateY(-50%); fill: none; stroke: var(--rvc-mute); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.rvc-fp-search input { width: 100%; height: 34px; padding: 0 10px 0 32px; border: 1px solid var(--rvc-line); border-radius: 10px; background: var(--rvc-input); color: var(--rvc-text); font: inherit; font-size: 13px; outline: none; transition: border-color .15s; }
+.rvc-fp-search input:focus { border-color: var(--rvc-acc); }
+.rvc-fp-search input::placeholder { color: var(--rvc-mute); }
+.rvc-gcard { margin: 0 0 10px; padding: 11px 11px 10px; border: 1px solid var(--rvc-line); border-radius: 12px; background: var(--rvc-input); }
+.rvc-gh { margin-bottom: 8px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--rvc-mute); }
+.rvc-gchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rvc-gchip {
+  display: inline-flex; align-items: center; padding: 5px 10px; border: 1px solid var(--rvc-line); border-radius: 8px;
+  background: var(--rvc-bg); color: var(--rvc-text); font: inherit; font-size: 12.5px; font-weight: 500; line-height: 1.3; cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.rvc-gchip:hover { border-color: var(--rvc-acc); }
+.rvc-gchip:focus-visible { outline: 2px solid var(--rvc-acc); outline-offset: 2px; }
+.rvc-gall { padding: 7px 14px; font-size: 13px; font-weight: 600; }
+.rvc-gall.on, .rvc-gall.on:hover { background: var(--rvc-acc); border-color: var(--rvc-acc); color: #fff; }
+/* Thể loại bị bỏ chọn: viền đứt, chữ đỏ, gạch ngang (giống trang review) */
+.rvc-gchip.ex { border-style: dashed; border-color: #fca5a5; background: #fef2f2; color: #b91c1c; text-decoration: line-through; text-decoration-thickness: 1px; }
+.rvc-gchip.ex:hover { background: #fee2e2; border-color: #f87171; }
+html.dark .rvc-gchip.ex, [data-theme="dark"] .rvc-gchip.ex { background: rgba(239, 68, 68, .12); border-color: rgba(248, 113, 113, .55); color: #fca5a5; }
+.rvc-gempty { padding: 20px 0; text-align: center; font-size: 13px; color: var(--rvc-mute); }
+.rvc-fp-foot { flex-shrink: 0; display: flex; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--rvc-line); }
+.rvc-fp-reset, .rvc-fp-apply { flex: 1 1 0; padding: 10px 14px; border-radius: 12px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: background .15s; }
+.rvc-fp-reset { border: 1px solid var(--rvc-line); background: transparent; color: var(--rvc-text); }
+.rvc-fp-reset:hover { background: var(--rvc-hover); }
+.rvc-fp-apply { border: 0; background: var(--rvc-acc); color: #fff; font-weight: 700; }
+.rvc-fp-apply:hover { background: var(--rvc-acc-h); }
+.rvc-fp-reset:focus-visible, .rvc-fp-apply:focus-visible { outline: 2px solid var(--rvc-acc); outline-offset: 2px; }
+@media (max-width: 680px) { .rvc-fp-search input { font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { .rvc-fp.open { animation: none; } }
+
+/* ---------- Sửa lỗi CÓ SẴN của trang (không thuộc chatbot) ----------
+   Ở màn hình nhỏ, tiêu đề "truncate" (không xuống dòng) trong cột "Đáng chú ý" nằm trong một ô grid thiếu min-width:0 nên đẩy cả trang
+   rộng hơn màn hình (vd 481px trên điện thoại 390px) → xuất hiện thanh cuộn ngang và mọi thứ dùng position:fixed (kể cả nút chatbot)
+   bị lệch ra ngoài mép phải. Dòng dưới cho các ô grid được phép co lại. Nếu bạn đã sửa lỗi này ở nơi khác thì xoá khối này cũng được. */
+@media (max-width: 1023px) { .grid > * { min-width: 0; } }
